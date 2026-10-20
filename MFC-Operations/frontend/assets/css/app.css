@@ -1626,41 +1626,164 @@ textarea:focus-visible {
     table-layout: fixed;
 }
 
-#invoiceLines .invoice-col-site { width: 130px; }
-#invoiceLines .invoice-col-quantity { width: 70px; }
-#invoiceLines .invoice-col-lot { width: 76px; }
-#invoiceLines .invoice-col-item-code { width: 125px; }
-#invoiceLines .invoice-col-description { width: auto; }
-#invoiceLines .invoice-col-unit { width: 70px; }
-#invoiceLines .invoice-col-price { width: 130px; }
-#invoiceLines .invoice-col-amount { width: 130px; }
-#invoiceLines .invoice-col-expiration { width: 115px; }
-#invoiceLines .invoice-col-tax { width: 68px; }
+#invoiceLines .invoice-col-site {
+    width: 130px;
+}
 
-.sales-order-table-wrap { max-width: 100%; }
-.sales-order-lines-table { width: 100%; min-width: 1510px; table-layout: fixed; }
-.sales-order-lines-table th, .sales-order-lines-table td { vertical-align: middle; }
-.sales-order-lines-table thead th { padding: 8px 5px; font-size: 9px; letter-spacing: .2px; line-height: 1.2; white-space: normal; }
-.sales-order-lines-table tbody td { padding: 5px; }
-.sales-order-lines-table .form-control, .sales-order-lines-table .form-select { width: 100%; min-width: 0; max-width: 100%; height: 30px; padding: 4px; font-size: 11px; line-height: 1.5; }
-.sales-order-lines-table .so-col-item { width: 145px; }
-.sales-order-lines-table .so-col-description { width: 220px; }
-.sales-order-lines-table .so-col-site { width: 105px; }
-.sales-order-lines-table .so-col-ordered { width: 75px; }
-.sales-order-lines-table .so-col-lot { width: 105px; }
-.sales-order-lines-table .so-col-um { width: 60px; }
-.sales-order-lines-table .so-col-rate { width: 115px; }
-.sales-order-lines-table .so-col-class { width: 90px; }
-.sales-order-lines-table .so-col-amount { width: 125px; }
-.sales-order-lines-table .so-col-status { width: 90px; }
-.sales-order-lines-table .so-col-fulfilled { width: 120px; }
-.sales-order-lines-table .so-col-expiration { width: 130px; }
-.sales-order-lines-table .so-col-tax { width: 75px; }
-.sales-order-item-cell { display: flex; align-items: center; gap: .25rem; min-width: 0; }
-.sales-order-item-cell .form-select { flex: 1 1 0; width: 0; }
-.sales-order-item-cell .btn { flex: 0 0 26px; width: 26px; min-height: 28px; padding: 3px; }
-.sales-order-lines-table .input-group { flex-wrap: nowrap; min-width: 0; }
-.sales-order-lines-table .input-group-text { padding: 4px; font-size: 11px; }
+#invoiceLines .invoice-col-quantity {
+    width: 70px;
+}
+
+#invoiceLines .invoice-col-lot {
+    width: 76px;
+}
+
+#invoiceLines .invoice-col-item-code {
+    width: 125px;
+}
+
+#invoiceLines .invoice-col-description {
+    width: auto;
+}
+
+#invoiceLines .invoice-col-unit {
+    width: 70px;
+}
+
+#invoiceLines .invoice-col-price {
+    width: 130px;
+}
+
+#invoiceLines .invoice-col-amount {
+    width: 130px;
+}
+
+#invoiceLines .invoice-col-expiration {
+    width: 115px;
+}
+
+#invoiceLines .invoice-col-tax {
+    width: 68px;
+}
+
+.sales-order-table-wrap {
+    max-width: 100%;
+}
+
+.sales-order-lines-table {
+    width: 100%;
+    min-width: 1510px;
+    table-layout: fixed;
+}
+
+.sales-order-lines-table th,
+.sales-order-lines-table td {
+    vertical-align: middle;
+}
+
+.sales-order-lines-table thead th {
+    padding: 8px 5px;
+    font-size: 9px;
+    letter-spacing: .2px;
+    line-height: 1.2;
+    white-space: normal;
+}
+
+.sales-order-lines-table tbody td {
+    padding: 5px;
+}
+
+.sales-order-lines-table .form-control,
+.sales-order-lines-table .form-select {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    height: 30px;
+    padding: 4px;
+    font-size: 11px;
+    line-height: 1.5;
+}
+
+.sales-order-lines-table .so-col-item {
+    width: 145px;
+}
+
+.sales-order-lines-table .so-col-description {
+    width: 220px;
+}
+
+.sales-order-lines-table .so-col-site {
+    width: 105px;
+}
+
+.sales-order-lines-table .so-col-ordered {
+    width: 75px;
+}
+
+.sales-order-lines-table .so-col-lot {
+    width: 105px;
+}
+
+.sales-order-lines-table .so-col-um {
+    width: 60px;
+}
+
+.sales-order-lines-table .so-col-rate {
+    width: 115px;
+}
+
+.sales-order-lines-table .so-col-class {
+    width: 90px;
+}
+
+.sales-order-lines-table .so-col-amount {
+    width: 125px;
+}
+
+.sales-order-lines-table .so-col-status {
+    width: 90px;
+}
+
+.sales-order-lines-table .so-col-fulfilled {
+    width: 120px;
+}
+
+.sales-order-lines-table .so-col-expiration {
+    width: 130px;
+}
+
+.sales-order-lines-table .so-col-tax {
+    width: 75px;
+}
+
+.sales-order-item-cell {
+    display: flex;
+    align-items: center;
+    gap: .25rem;
+    min-width: 0;
+}
+
+.sales-order-item-cell .form-select {
+    flex: 1 1 0;
+    width: 0;
+}
+
+.sales-order-item-cell .btn {
+    flex: 0 0 26px;
+    width: 26px;
+    min-height: 28px;
+    padding: 3px;
+}
+
+.sales-order-lines-table .input-group {
+    flex-wrap: nowrap;
+    min-width: 0;
+}
+
+.sales-order-lines-table .input-group-text {
+    padding: 4px;
+    font-size: 11px;
+}
 
 #invoiceLines thead th {
     padding: 8px 5px;
@@ -2054,6 +2177,196 @@ textarea:focus-visible {
 
 @media print {
 
+    #mainContent:has(#invoiceForm),
+    #mainContent:has(#salesOrderForm) {
+        width: 100% !important;
+        min-width: 0 !important;
+        margin: 0 !important;
+    }
+
+    body:has(#invoiceForm) .sidebar,
+    body:has(#salesOrderForm) .sidebar,
+    body:has(#invoiceForm) .sidebar-backdrop,
+    body:has(#salesOrderForm) .sidebar-backdrop,
+    body:has(#invoiceForm) .topbar,
+    body:has(#salesOrderForm) .topbar,
+    body:has(#invoiceForm) .skip-link,
+    body:has(#salesOrderForm) .skip-link,
+    body:has(#invoiceForm) .page-intro .toolbar,
+    body:has(#salesOrderForm) .page-intro .toolbar,
+    body:has(#invoiceForm) .notice.warning,
+    body:has(#salesOrderForm) .notice.warning,
+    body:has(#invoiceForm) .page-bottom-actions,
+    body:has(#salesOrderForm) .page-bottom-actions,
+    body:has(#invoiceForm) .app-footer,
+    body:has(#salesOrderForm) .app-footer,
+    body:has(#invoiceForm) .table-pagination,
+    body:has(#salesOrderForm) .table-pagination,
+    body:has(#invoiceForm) button,
+    body:has(#salesOrderForm) button {
+        display: none !important;
+    }
+
+    body:has(#invoiceForm),
+    body:has(#salesOrderForm) {
+        min-width: 0 !important;
+        background: #fff !important;
+    }
+
+    body:has(#invoiceForm) .page-content,
+    body:has(#salesOrderForm) .page-content {
+        padding: 0 !important;
+    }
+
+    body:has(#invoiceForm) .table-responsive,
+    body:has(#salesOrderForm) .table-responsive {
+        max-height: none !important;
+        overflow: visible !important;
+    }
+
+    body:has(#invoiceForm) table th,
+    body:has(#salesOrderForm) table th {
+        position: static !important;
+    }
+
+    body:has(#invoiceForm) tr,
+    body:has(#salesOrderForm) tr {
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    body:has(#salesOrderForm) .sales-order-lines-table {
+        width: 100% !important;
+        min-width: 0 !important;
+        font-size: 7pt;
+    }
+
+    body:has(#salesOrderForm) .sales-order-lines-table .so-col-item { width: 9%; }
+    body:has(#salesOrderForm) .sales-order-lines-table .so-col-description { width: 18%; }
+    body:has(#salesOrderForm) .sales-order-lines-table .so-col-site { width: 7%; }
+    body:has(#salesOrderForm) .sales-order-lines-table .so-col-ordered { width: 5%; }
+    body:has(#salesOrderForm) .sales-order-lines-table .so-col-lot { width: 8%; }
+    body:has(#salesOrderForm) .sales-order-lines-table .so-col-um { width: 4%; }
+    body:has(#salesOrderForm) .sales-order-lines-table .so-col-rate { width: 7%; }
+    body:has(#salesOrderForm) .sales-order-lines-table .so-col-class { width: 6%; }
+    body:has(#salesOrderForm) .sales-order-lines-table .so-col-amount { width: 8%; }
+    body:has(#salesOrderForm) .sales-order-lines-table .so-col-status { width: 6%; }
+    body:has(#salesOrderForm) .sales-order-lines-table .so-col-fulfilled { width: 7%; }
+    body:has(#salesOrderForm) .sales-order-lines-table .so-col-expiration { width: 8%; }
+    body:has(#salesOrderForm) .sales-order-lines-table .so-col-tax { width: 4%; }
+
+    body:has(#salesOrderForm) .sales-order-lines-table input,
+    body:has(#salesOrderForm) .sales-order-lines-table select {
+        min-width: 0 !important;
+        height: auto !important;
+        padding: 1px !important;
+        font-size: 6pt !important;
+    }
+
+    body:has(#salesOrderForm) .page-intro {
+        margin-bottom: 6px;
+    }
+
+    body:has(#salesOrderForm) #salesOrderForm > section:first-of-type .row {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 4px 10px;
+        margin: 0;
+    }
+
+    body:has(#salesOrderForm) #salesOrderForm > section:first-of-type .row > [class*="col-"] {
+        width: auto;
+        max-width: none;
+        padding: 0;
+    }
+
+    body:has(#salesOrderForm) #salesOrderForm > section:first-of-type .panel-header,
+    body:has(#salesOrderForm) #salesOrderForm > section:first-of-type .panel-body,
+    body:has(#salesOrderForm) #salesOrderForm > section:nth-of-type(2) .panel-header,
+    body:has(#salesOrderForm) #salesOrderForm > section:nth-of-type(2) .panel-body {
+        padding: 6px 10px !important;
+    }
+
+    body:has(#salesOrderForm) #salesOrderForm > section:first-of-type .form-label {
+        margin-bottom: 1px;
+        font-size: 7pt;
+    }
+
+    body:has(#salesOrderForm) #salesOrderForm > section:first-of-type .form-control,
+    body:has(#salesOrderForm) #salesOrderForm > section:first-of-type .form-select {
+        height: 20px;
+        min-height: 20px;
+        padding: 1px 4px;
+        font-size: 7pt;
+    }
+
+    body:has(#salesOrderForm) #salesOrderForm > section:nth-of-type(2) .total-card {
+        padding: 5px 8px;
+    }
+
+    body:has(#invoiceForm) #invoiceForm > section:first-of-type .row {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 4px 10px;
+        margin: 0;
+    }
+
+    body:has(#invoiceForm) #invoiceForm > section:first-of-type .row > [class*="col-"] {
+        display: grid;
+        grid-template-columns: max-content minmax(0, 1fr);
+        align-items: center;
+        gap: 4px;
+        width: auto;
+        max-width: none;
+        padding: 0;
+    }
+
+    body:has(#invoiceForm) #invoiceForm > section:first-of-type .panel-header,
+    body:has(#invoiceForm) #invoiceForm > section:first-of-type .panel-body,
+    body:has(#invoiceForm) #invoiceForm > section:nth-of-type(2) .panel-header,
+    body:has(#invoiceForm) #invoiceForm > section:nth-of-type(2) .panel-body {
+        padding: 6px 10px !important;
+    }
+
+    body:has(#invoiceForm) #invoiceForm > section:first-of-type .form-label {
+        margin: 0;
+        font-size: 7pt;
+        white-space: nowrap;
+    }
+
+    body:has(#invoiceForm) #invoiceForm > section:first-of-type .form-control,
+    body:has(#invoiceForm) #invoiceForm > section:first-of-type .form-select {
+        width: 100%;
+        min-width: 0;
+        height: 20px;
+        min-height: 20px;
+        padding: 1px 4px;
+        font-size: 7pt;
+    }
+
+    body:has(#invoiceForm) #invoiceForm > section:first-of-type textarea.form-control {
+        height: 20px;
+        resize: none;
+    }
+
+    body:has(#invoiceForm) #invoiceForm table th,
+    body:has(#invoiceForm) #invoiceForm table td {
+        padding: 2px 3px;
+    }
+
+    body:has(#invoiceForm) #invoiceForm table input,
+    body:has(#invoiceForm) #invoiceForm table select {
+        min-width: 0 !important;
+        height: 18px !important;
+        min-height: 18px !important;
+        padding: 1px !important;
+        font-size: 6pt !important;
+    }
+
+    body:has(#invoiceForm) #invoiceForm .total-card {
+        padding: 5px 8px;
+    }
+
     .withdrawal-page-toolbar,
     .withdrawal-form-actions,
     .withdrawal-item-tools,
@@ -2092,19 +2405,19 @@ textarea:focus-visible {
 }
 
 /* Keep client rows compact while leaving enough room for clear labels. */
-#clientsAccordion .client-accordion-item > .accordion-header .accordion-button {
+#clientsAccordion .client-accordion-item>.accordion-header .accordion-button {
     min-height: 50px;
     padding: 8px 16px;
 }
 
-#clientsAccordion .history-content .table-sm > :not(caption) > * > * {
+#clientsAccordion .history-content .table-sm> :not(caption)>*>* {
     padding: 7px 10px;
     line-height: 1.35;
     vertical-align: middle;
 }
 
 @media (max-width: 575.98px) {
-    #clientsAccordion .client-accordion-item > .accordion-header .accordion-button {
+    #clientsAccordion .client-accordion-item>.accordion-header .accordion-button {
         min-height: 48px;
         padding: 7px 12px;
     }

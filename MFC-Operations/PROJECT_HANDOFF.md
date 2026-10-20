@@ -106,7 +106,7 @@ Displayed monetary values use PHP peso formatting with two decimals and thousand
 
 The invoice line table in `frontend/invoice_preparation.php` uses fixed pixel widths for compact fields and lets Description take the remaining space, styled in `frontend/assets/css/app.css`. The shared header adds an asset modification-time query to the CSS URL so updated styles are fetched. Product selection displays only `products.qb_description`. QB Code remains in the item-code field and product identity/mappings remain in their existing values. Opening a draft does not update saved invoice descriptions.
 
-The updated invoice page passed `php -l`. A scan of the live product master found no QB descriptions containing code or mapping annotations; those labels were added by the product option markup. No automated test suite was found, and the revised layout has not been visually checked in a browser.
+The invoice page passed `php -l`. A scan of the product master found no QB descriptions containing code or mapping annotations; those labels had been added by product option markup. Local HTTP draft workflows are exercised by `tests/e2e_http_regression.php`. Phase 2 browser checks now cover withdrawal, invoice, and Sales Order draft create/save/reload, narrow layouts, and invoice/Sales Order print output. The dedicated `withdrawal_print.php` route remains unverified; see `E2E_REGRESSION_RESULTS.md`.
 
 **Do not implement automatic QuickBooks posting, enable a send action, or claim successful QB integration unless that is explicitly requested and all integration prerequisites are verified.**
 
@@ -229,15 +229,15 @@ The README documents a staged migration for product/site permissions and mapping
 - Client invoice-history loading now uses one error-handled loader for initial load, retry, and pagination. Retry calls the loader directly, and request sequence checks prevent stale responses from overwriting newer pages. Browser interaction testing remains outstanding.
 - Invoice detail labels the saved line sum **Line Amount Subtotal**. The API still sums saved line amounts and does not calculate tax-inclusive totals.
 - Products & Sites deletion guards count withdrawal, invoice, and Sales Order transaction references. The application directs users to deactivate referenced masters instead.
-- `backend/database/migrations/20261020_restrict_historical_master_deletes.sql` changes transaction product/site foreign keys to RESTRICT. It has been exercised only against the isolated empty `test` schema; it has not been applied to `withdrawal_qb`.
+- `backend/database/migrations/20261020_restrict_historical_master_deletes.sql` changes transaction product/site foreign keys to RESTRICT. Its behavior passed an isolated migration test. A read-only inspection on 2026-10-20 found `RESTRICT` on withdrawal, invoice, and Sales Order product/site foreign keys in the configured `withdrawal_qb` database; no migration ledger exists, so deployment provenance is unknown. Do not rerun the migration there without inspecting the target constraints.
 - CSV export neutralizes formula-leading text cells while leaving numeric columns and stored database values unchanged.
 - Client, product/site, employee, and product/site permission mutations now commit their business write and activity log together.
 - Session bootstrap sets strict mode, HttpOnly, SameSite=Lax, and HTTPS-dependent Secure behavior. Logout is a CSRF-protected POST.
 - Login failures are audited without usernames/passwords and limited to 20 failures per source IP per rolling 15 minutes. External firewall, proxy, and router protections remain unverified.
-- `PRODUCT_MAPPING_REVIEW.md` is a controlled internal report of active products with incomplete HT/QB mappings or missing QuickBooks ListIDs. It contains no inferred or edited mappings.
+- `PRODUCT_MAPPING_REVIEW.md` summarizes the current active mapping state; `PRODUCT_MAPPING_RECONCILIATION.md` contains the read-only 92-product reconciliation. No inferred or edited mappings are included.
 - `tests/qa_regression.php` uses the empty `test` schema and cleans up its fixture tables. It refuses to run against a nonempty test schema.
 
-These changes received focused source, isolated-database, CLI, and local HTTP checks. They do not establish full authenticated browser workflow readiness; see `QA_AUDIT_REPORT.md` for the test evidence and remaining blocks.
+The remediation and local draft paths received isolated-database, CLI, authenticated HTTP, and Edge browser checks. The 2026-10-20 browser run exercised withdrawal creation/reopen, invoice/Sales Order draft save/reload, narrow table scrolling, mapping display, and invoice/Sales Order print output with synthetic test records. The local Edge session could not load external Bootstrap/SweetAlert CDN assets; a native confirmation fallback was verified, while CDN-dependent styling remains unverified. Role/CRUD coverage, the dedicated withdrawal print route, deployed HTTPS, and QuickBooks integration readiness remain open. See `E2E_REGRESSION_RESULTS.md`.
 
 ## 7. Database and migration safety
 
@@ -250,7 +250,7 @@ The application README documents XAMPP setup and database upgrade steps. Importa
 - The product/site migration is staged. It calls for reviewing duplicate codes and incomplete mappings, completing authoritative HT mappings, deploying compatible PHP files, verifying that the code no longer reads `products.default_site_id`, inspecting `SHOW CREATE TABLE products`, and only then applying the commented final DDL/unique indexes where appropriate.
 - Do not manufacture HT codes or QuickBooks IDs. They must come from authoritative company data.
 - Preserve historical transaction IDs and invoice-line `site_id` values.
-- Apply `20261020_restrict_historical_master_deletes.sql` only once to an existing database after backup and schema-name review. It changes transaction product/site references from `ON DELETE SET NULL` to `ON DELETE RESTRICT`; apply it only when the Sales Order migration is present.
+- Inspect actual transaction product/site foreign-key names and delete rules before applying `20261020_restrict_historical_master_deletes.sql`. Apply only to a target with the old `SET NULL` constraints and the Sales Order tables, after backup. This database has no migration ledger, and the configured database inspected on 2026-10-20 already reports the target `RESTRICT` behavior; do not rerun the migration there.
 - Validate the migration against the actual database version and real company records before running any DDL.
 - Withdrawal and invoice line quantities are whole units in the current form/controller logic and initial schema. The `20261019_whole_number_quantities.sql` migration checks for fractional historical quantities and stops before DDL if any exist; resolve those records against authoritative data rather than rounding them automatically. Price and kg-per-box fields remain decimal values.
 
@@ -270,6 +270,7 @@ The application README describes an XAMPP setup. Typical checks:
 10. Test a real saved invoice with multiple invoice rows and confirm the modal rows match `invoice_items` exactly.
 11. Verify that invoice-specific edits do not modify the original withdrawal.
 12. Do not mark QuickBooks integration as tested unless it is tested against the intended QuickBooks Enterprise company file through the required Web Connector/qbXML workflow.
+13. For repeatable local HTTP testing, follow `E2E_REGRESSION_TEST_PLAN.md`; the two regression scripts require an empty `test` schema, and the PHP test server must use `tests/e2e_db_guard.php` as its auto-prepend guard.
 
 A static source review alone cannot confirm that the application runs against the user's local PHP version, database schema, data, browser, or QuickBooks environment.
 

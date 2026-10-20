@@ -11,6 +11,13 @@ window.formatCurrencyInput = function (input) {
     if (!/^\d+(?:\.\d{0,2})?$/.test(raw)) return;
     input.value = window.formatMoneyValue(raw);
 };
+async function confirmAction(options) {
+    if (window.Swal && typeof window.Swal.fire === 'function') {
+        const result = await window.Swal.fire(options);
+        return result.isConfirmed;
+    }
+    return window.confirm([options.title, options.text].filter(Boolean).join('\n\n'));
+}
 document.addEventListener('focusin', function (ev) {
     if (ev.target.matches('.currency-input')) ev.target.value = String(ev.target.value).replace(/,/g, '');
 });
@@ -40,21 +47,21 @@ document.addEventListener('DOMContentLoaded', function () {
         form.addEventListener('submit', async function (event) {
             if (form.dataset.confirmed === 'true') { delete form.dataset.confirmed; return; }
             event.preventDefault(); const invoice = form.id === 'invoiceForm';
-            const result = await Swal.fire({ title: invoice ? 'Save invoice draft?' : 'Save withdrawal?', text: invoice ? 'Your invoice draft and line details will be saved.' : 'This will save the withdrawal and its item details.', icon: 'question', showCancelButton: true, confirmButtonText: invoice ? 'Save draft' : 'Save withdrawal', cancelButtonText: 'Review details', confirmButtonColor: '#2563eb', reverseButtons: true });
-            if (result.isConfirmed) { form.dataset.confirmed = 'true'; if (form.requestSubmit) form.requestSubmit(event.submitter || undefined); else form.submit(); }
+            const confirmed = await confirmAction({ title: invoice ? 'Save invoice draft?' : 'Save withdrawal?', text: invoice ? 'Your invoice draft and line details will be saved.' : 'This will save the withdrawal and its item details.', icon: 'question', showCancelButton: true, confirmButtonText: invoice ? 'Save draft' : 'Save withdrawal', cancelButtonText: 'Review details', confirmButtonColor: '#2563eb', reverseButtons: true });
+            if (confirmed) { form.dataset.confirmed = 'true'; if (form.requestSubmit) form.requestSubmit(event.submitter || undefined); else form.submit(); }
         });
     });
     document.querySelectorAll('form[data-confirm-submit]').forEach(function (form) {
         form.addEventListener('submit', async function (event) {
             if (form.dataset.confirmed === 'true') { delete form.dataset.confirmed; return; }
             event.preventDefault();
-            const result = await Swal.fire({ title: form.dataset.confirmTitle || 'Confirm changes?', text: form.dataset.confirmSubmit, icon: 'question', showCancelButton: true, confirmButtonText: form.dataset.confirmButton || 'Continue', cancelButtonText: 'Review', confirmButtonColor: '#2563eb', reverseButtons: true });
-            if (result.isConfirmed) { form.dataset.confirmed = 'true'; if (form.requestSubmit) form.requestSubmit(event.submitter || undefined); else form.submit(); }
+            const confirmed = await confirmAction({ title: form.dataset.confirmTitle || 'Confirm changes?', text: form.dataset.confirmSubmit, icon: 'question', showCancelButton: true, confirmButtonText: form.dataset.confirmButton || 'Continue', cancelButtonText: 'Review', confirmButtonColor: '#2563eb', reverseButtons: true });
+            if (confirmed) { form.dataset.confirmed = 'true'; if (form.requestSubmit) form.requestSubmit(event.submitter || undefined); else form.submit(); }
         });
     });
     document.querySelectorAll('[data-confirm]').forEach(link => link.addEventListener('click', async function (event) {
-        event.preventDefault(); const result = await Swal.fire({ title: link.dataset.confirmTitle || 'Are you sure?', text: link.dataset.confirm, icon: link.dataset.confirmIcon || 'warning', showCancelButton: true, confirmButtonText: 'Continue', cancelButtonText: 'Cancel', confirmButtonColor: '#2563eb', reverseButtons: true });
-        if (result.isConfirmed) window.location.href = link.href;
+        event.preventDefault(); const confirmed = await confirmAction({ title: link.dataset.confirmTitle || 'Are you sure?', text: link.dataset.confirm, icon: link.dataset.confirmIcon || 'warning', showCancelButton: true, confirmButtonText: 'Continue', cancelButtonText: 'Cancel', confirmButtonColor: '#2563eb', reverseButtons: true });
+        if (confirmed) window.location.href = link.href;
     }));
     document.querySelectorAll('.table:not([data-pagination-exempt])').forEach(function (table) {
         const body = table.tBodies[0]; if (!body) return;

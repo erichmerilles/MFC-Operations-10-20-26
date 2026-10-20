@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 require_once __DIR__ . '/../backend/core/functions.php';
@@ -77,7 +78,13 @@ try {
     echo "PASS F02: SO-only, mixed references, unused deletes, and historical links\n";
 
     $csvCases = [
-        '=1+1', '+SUM(A1:A2)', '-1+2', '@SUM(A1:A2)', "\t=HYPERLINK('x')", " \r\n@SUM(A1:A2)", "=cmd,\"quoted\"\nnext line",
+        '=1+1',
+        '+SUM(A1:A2)',
+        '-1+2',
+        '@SUM(A1:A2)',
+        "\t=HYPERLINK('x')",
+        " \r\n@SUM(A1:A2)",
+        "=cmd,\"quoted\"\nnext line",
     ];
     foreach ($csvCases as $value) {
         $safe = csv_safe_text_cell($value);
@@ -92,7 +99,7 @@ try {
     $ordinary = 'Package, "A"' . "\n" . 'Second line';
     qa_assert(csv_safe_text_cell($ordinary) === $ordinary, 'Ordinary text should remain unchanged.');
     $exportSource = file_get_contents(__DIR__ . '/../backend/exports/withdrawals.php');
-    qa_assert(str_contains($exportSource, 'csv_safe_text_cell') && str_contains($exportSource, "'quantity'" ) === false, 'CSV export does not isolate spreadsheet protection to text fields.');
+    qa_assert(str_contains($exportSource, 'csv_safe_text_cell') && str_contains($exportSource, "'quantity'") === false, 'CSV export does not isolate spreadsheet protection to text fields.');
     echo "PASS F03: formula prefixes, controls, CSV quoting, and ordinary values\n";
 
     $create('CREATE TABLE activity_logs (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, employee_id BIGINT UNSIGNED NULL, action VARCHAR(80) NOT NULL, entity_type VARCHAR(80) NOT NULL, entity_id BIGINT UNSIGNED NULL, details TEXT NULL, ip_address VARCHAR(45) NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, INDEX idx_activity_created(created_at)) ENGINE=InnoDB');
@@ -142,6 +149,12 @@ try {
     $apiSource = file_get_contents(__DIR__ . '/../backend/api/client_invoice_detail.php');
     qa_assert(str_contains($apiSource, "['subtotal']") && str_contains($apiSource, "'amount'"), 'Invoice detail no longer returns the saved line subtotal.');
     echo "PASS F04/F05/F09: source guards and UI wording\n";
+
+    $loginSource = file_get_contents(__DIR__ . '/../frontend/login.php');
+    $sharedJs = file_get_contents(__DIR__ . '/../frontend/assets/js/app.js');
+    qa_assert(str_contains($loginSource, "assets/images/login.png") && is_file(__DIR__ . '/../frontend/assets/images/login.png'), 'Login page references a missing background image.');
+    qa_assert(str_contains($sharedJs, 'async function confirmAction') && str_contains($sharedJs, 'window.Swal.fire') && str_contains($sharedJs, 'window.confirm('), 'Confirmation actions need both the styled dialog and native-browser fallback.');
+    echo "PASS F10: login asset exists and shared confirmations have an offline fallback\n";
 } finally {
     if ($pdo->inTransaction()) $pdo->rollBack();
     foreach (array_reverse($createdTables) as $table) $pdo->exec("DROP TABLE IF EXISTS `{$table}`");

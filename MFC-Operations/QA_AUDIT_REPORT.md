@@ -273,7 +273,7 @@ The original audit findings and test table above are retained as the baseline. T
 | Finding | Baseline | Current result | Evidence and remaining work |
 |---|---|---|---|
 | F01 Product mappings | Incomplete active mappings | **Unresolved; safe review prepared** | `PRODUCT_MAPPING_REVIEW.md` lists active products with missing values using stable IDs and current mapping fields. Current read-only counts remain: 1 missing HT Code, 18 missing QB Codes, 18 missing QB Descriptions, and 92 missing ListIDs. No product mapping or active state was changed. Business mappings need authoritative company confirmation; ListIDs need a future verified QuickBooks lookup. |
-| F02 Historical references | Deletion guards omitted Sales Orders; FKs used `SET NULL` | **Code fixed; production migration pending** | Product/site guards and displayed reference counts include Sales Orders. A migration changes withdrawal, invoice, and Sales Order transaction product/site FKs to `RESTRICT`, preserving nullable links and existing rows. The migration and SO-only, mixed-reference, unused-delete cases passed in the isolated `test` schema. It was not applied to `withdrawal_qb`; until applied, direct database deletion can still clear those links. |
+| F02 Historical references | Deletion guards omitted Sales Orders; earlier schema used `SET NULL` | **Code fixed; configured schema currently has target rules** | Product/site guards and displayed reference counts include Sales Orders. Migration behavior and SO-only, mixed-reference, unused-delete cases passed in the isolated `test` schema. A later read-only inspection found the configured `withdrawal_qb` schema already reports `RESTRICT` for withdrawal, invoice, and Sales Order product/site references. There is no migration ledger, so provenance is unknown; do not rerun the migration there without inspecting its current FK names. |
 | F03 CSV formula injection | Text cells passed directly to `fputcsv` | **Fixed and focused-tested** | Text output cells are neutralized when formula prefixes follow whitespace/control/format characters; numeric quantity and line columns are not transformed. The isolated test covered `=`, `+`, `-`, `@`, leading controls, commas, quotes, embedded newlines, and ordinary text. Stored database values are not updated. |
 | F04 Invoice-history retry | Retry toggled accordion; pagination failures were unhandled | **Code fixed; browser scenarios unverified** | One loader handles initial load, retry, and pagination; failures render a retry action; request IDs ignore stale responses. Static checks passed. No browser assertion result was obtained, so the required network/HTTP failure, client-switch, empty-history, and final-page interactions remain unverified. |
 | F05 Invoice total label | Saved line sum labeled `Invoice Total` | **Label corrected** | Detail UI now says `Line Amount Subtotal`; the API continues to return the sum of stored line amounts and performs no tax calculation. Source checks passed; taxable/non-taxable browser examples were not exercised. |
@@ -289,7 +289,7 @@ The original audit findings and test table above are retained as the baseline. T
 
 ### Checks performed
 
-- PHP 8.2.12 syntax check: **31 PHP files passed**.
+- PHP 8.2.12 syntax check at the time: **31 PHP files passed**; the later E2E run below linted 33 files.
 - `php tests/qa_regression.php`: **passed** for isolated Sales Order-only and mixed product/site reference protection, genuinely unused deletes, existing Sales Order link preservation, CSV neutralization/quoting, audit-failure rollback, login-throttle threshold and recovery, and source assertions for the UI/API changes.
 - The MariaDB `test` schema was empty before the regression run and empty after fixture cleanup. The configured `withdrawal_qb` schema was queried read-only only.
 - Read-only current-schema query confirmed the modified reference-count queries are compatible with present transaction tables. No data migration was applied to the configured database.
@@ -300,8 +300,25 @@ The original audit findings and test table above are retained as the baseline. T
 
 ### Deployment steps and remaining risks
 
-1. Back up the target database, inspect its actual FK names and Sales Order migration status, then run `20261020_restrict_historical_master_deletes.sql` once. Do not run it against a schema that already has the replacement constraints.
+1. Inspect the target database's actual FK names and delete rules before considering `20261020_restrict_historical_master_deletes.sql`. Run only where old `SET NULL` constraints remain and Sales Order tables exist. The configured database currently has the replacement `RESTRICT` constraints; do not run the migration there.
 2. Confirm authoritative HT/QB codes and descriptions for the rows in `PRODUCT_MAPPING_REVIEW.md`. Do not populate ListIDs until a verified QuickBooks lookup workflow exists.
 3. Verify Apache HTTPS termination sets `HTTPS`/port state correctly so session cookies receive `Secure`; assess any reverse proxy, firewall, or network-level login controls.
 4. Exercise authenticated client/product/site/settings CRUD, failed audit logging, login throttling from the actual staff network, logout/session rotation, and invoice-history retries in a browser using disposable fixtures.
 5. Keep QuickBooks readiness **not verified**. The current code still has no Sales Order posting processor or verified QBXML flow.
+
+## 18. Full local E2E regression run (2026-10-20)
+
+This section supersedes earlier statements about the local HTTP workflow coverage and the configured database's effective product/site FK state. The historical audit sections above remain as the remediation baseline. All E2E writes used synthetic fixtures in the separate `test` schema; the configured `withdrawal_qb` database was inspected read-only.
+
+- PHP 8.2.12 and MariaDB 10.4.32 were available. Fourteen HTTP/database cases passed through a dedicated loopback PHP server: anonymous protection, invalid and valid synthetic login, session rotation/cookie attributes, valid and invalid CSRF logout including replay of the old session, two-line withdrawal create/reopen, CSV export formula protection, invoice draft save/reload, Sales Order draft save/reload, exact 13-column order, separate QB Code and ListID, amount totals, missing SITE, missing mapping, malformed rate validation, audit entries, and source-withdrawal preservation.
+- `tests/qa_regression.php` passed on rerun for F02, F03, F06, F08, and F04/F05/F09 source guards. All 33 PHP files passed `php -l`.
+- The `test` schema was empty before setup and had zero tables after cleanup. No production/shared rows were used as fixtures.
+- Current read-only counts in `withdrawal_qb`: 819 clients, 94 products, 7 sites, 5 withdrawals/6 lines, 3 invoices/4 lines, and 2 Sales Orders/3 lines. Counts may change as staff use the application.
+- `information_schema` currently reports `RESTRICT` for withdrawal product, invoice product/site, and Sales Order product/site references. No migration ledger was identified. The deployed constraints have the target behavior, but their migration provenance is unknown; do not blindly rerun `20261020_restrict_historical_master_deletes.sql` against this configured database.
+- `PRODUCT_MAPPING_REVIEW.md` reports 1 active product missing HT Code, 18 missing QB Code, 18 missing QB Description, and 92 missing QuickBooks ListID. E2E mapping behavior passed only with synthetic values; authoritative mappings remain a business-data prerequisite.
+- Source search found no Web Connector processor, qbXML Invoice/Sales Order add request, or response reconciliation implementation. No QuickBooks posting was attempted.
+- Visual browser/responsive/print tests, role-specific CRUD, full HTTP throttle load, and deployed HTTPS/proxy behavior remain unverified. No usable Playwright/chromedriver setup was available. Git executable was unavailable, so branch/commit/worktree baseline remains unknown.
+
+### Overall release recommendation
+
+Local draft workflows passed their synthetic HTTP checks, with no confirmed application defect in the exercised cases. **NO-GO for production QuickBooks use** remains appropriate until mapping data, browser/role acceptance, deployment security, and a verified QuickBooks integration/test company are available. Continue controlled local acceptance testing only. See `E2E_REGRESSION_TEST_PLAN.md`, `E2E_REGRESSION_RESULTS.md`, `E2E_REGRESSION_DEFECTS.md`, and `E2E_REGRESSION_SUMMARY.md` for the repeatable plan and detailed evidence.

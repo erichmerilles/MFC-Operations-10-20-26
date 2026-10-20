@@ -87,6 +87,7 @@ $customerQuery->execute([$order['customer_id']]);
 $customers = $customerQuery->fetchAll();
 $total = array_sum(array_map(static fn(array $line): float => (float)$line['amount'], $lines));
 ?>
+<style>@media print { @page { size: landscape; margin: 10mm; } }</style>
 <div class="page-intro">
     <div>
         <h2>Prepare Sales Order</h2>

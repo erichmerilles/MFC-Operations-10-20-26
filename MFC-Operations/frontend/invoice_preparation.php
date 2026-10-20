@@ -123,6 +123,7 @@ foreach ($lines as $ln) {
     $sum += (float) $ln['amount'];
 }
 ?>
+<style>@media print { @page { size: landscape; margin: 10mm; } }</style>
 
 <div class="page-intro">
     <div>
