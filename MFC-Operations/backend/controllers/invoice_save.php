@@ -45,6 +45,7 @@ try {
     $codeMatches = $pdo->prepare('SELECT id FROM products WHERE LOWER(TRIM(qb_code))=LOWER(TRIM(?))');
     $sites = $pdo->prepare('SELECT id FROM sites WHERE id=? AND active=1');
     $withdrawalLine = $pdo->prepare('SELECT product_id FROM withdrawal_items WHERE id=? AND withdrawal_id=?');
+    $existingInvoiceLine = $pdo->prepare('SELECT source_type,withdrawal_item_id,product_id FROM invoice_items WHERE id=? AND invoice_id=?');
     $valid = [];
     foreach ($raw as $it) {
         if (!is_array($it)) throw new RuntimeException('Invoice lines are invalid.');
@@ -71,15 +72,37 @@ try {
         $expiry = trim((string)($it['expiration_date'] ?? ''));
         if ($expiry !== '' && !$validDate($expiry)) throw new RuntimeException('Enter a valid EXPIRATION DATE or leave it blank.');
         $qty = (int)$qtyRaw; $price = (float)$priceRaw;
-        $source = ($it['source_type'] ?? '') === 'ADDITIONAL' ? 'ADDITIONAL' : 'WITHDRAWAL';
-        $wi = filter_var($it['withdrawal_item_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
-        if ($source === 'WITHDRAWAL' && $wi) {
+        $source = $it['source_type'] ?? 'WITHDRAWAL';
+        if (!in_array($source, ['WITHDRAWAL', 'ADDITIONAL'], true)) throw new RuntimeException('Invoice line source is invalid.');
+        $lineIdRaw = $it['id'] ?? '';
+        if (!is_scalar($lineIdRaw)) throw new RuntimeException('Invoice line identifier is invalid.');
+        $lineId = trim((string)$lineIdRaw) === '' ? null : filter_var($lineIdRaw, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+        if (trim((string)$lineIdRaw) !== '' && !$lineId) throw new RuntimeException('Invoice line identifier is invalid.');
+        $savedLine = null;
+        if ($lineId) {
+            $existingInvoiceLine->execute([$lineId, $invoiceId]);
+            $savedLine = $existingInvoiceLine->fetch();
+            if (!$savedLine) throw new RuntimeException('An invoice line does not belong to this draft. Refresh the page and try again.');
+            if ($source !== $savedLine['source_type']) throw new RuntimeException('An existing invoice line source cannot be changed. Add a separate additional line if needed.');
+        } elseif ($source !== 'ADDITIONAL') {
+            throw new RuntimeException('A new invoice line must be explicitly designated ADDITIONAL.');
+        }
+        $wiRaw = $it['withdrawal_item_id'] ?? '';
+        if (!is_scalar($wiRaw)) throw new RuntimeException('Invoice source withdrawal item identifier is invalid.');
+        $wi = trim((string)$wiRaw) === '' ? null : filter_var($wiRaw, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+        if (trim((string)$wiRaw) !== '' && !$wi) throw new RuntimeException('Invoice source withdrawal item identifier is invalid.');
+        if ($source === 'WITHDRAWAL') {
+            if (!$wi) throw new RuntimeException('A withdrawal-sourced invoice line must reference a valid withdrawal item.');
+            if ($savedLine && (int)($savedLine['withdrawal_item_id'] ?? 0) !== (int)$wi) throw new RuntimeException('A withdrawal-sourced invoice line must keep its saved source withdrawal item.');
             $withdrawalLine->execute([$wi, $inv['withdrawal_id']]);
             $sourceProductId = $withdrawalLine->fetchColumn();
-            if ($sourceProductId === false || ($sourceProductId !== null && (int)$sourceProductId !== (int)$product['id'])) throw new RuntimeException('A source invoice line no longer matches this withdrawal product.');
+            if ($sourceProductId === false || $sourceProductId === null || (int)$sourceProductId !== (int)$product['id']) throw new RuntimeException('A source invoice line no longer matches this withdrawal product.');
+            if ($savedLine && (int)$savedLine['product_id'] !== (int)$product['id']) throw new RuntimeException('A source invoice line no longer matches its saved product.');
+        } elseif ($wi || ($savedLine && $savedLine['withdrawal_item_id'] !== null)) {
+            throw new RuntimeException('An ADDITIONAL invoice line cannot reference a withdrawal item.');
         }
         if (mb_strlen($it['lot_number'] ?? '') > 100 || mb_strlen($it['item_code'] ?? '') > 100 || mb_strlen($it['description'] ?? '') > 255 || mb_strlen($it['u_m'] ?? '') > 40) throw new RuntimeException('A line value exceeds its allowed length.');
-        $valid[] = ['product'=>$product,'site'=>$siteId,'qty'=>$qty,'price'=>$price,'tax'=>$tax,'expiry'=>$expiry ?: null,'lot'=>trim((string)($it['lot_number'] ?? '')),'code'=>trim((string)($it['item_code'] ?? '')),'desc'=>trim((string)($it['description'] ?? '')),'um'=>trim((string)($it['u_m'] ?? '')),'source'=>$source,'wi'=>$source === 'WITHDRAWAL' && $wi ? $wi : null];
+        $valid[] = ['product'=>$product,'site'=>$siteId,'qty'=>$qty,'price'=>$price,'tax'=>$tax,'expiry'=>$expiry ?: null,'lot'=>trim((string)($it['lot_number'] ?? '')),'code'=>trim((string)($it['item_code'] ?? '')),'desc'=>trim((string)($it['description'] ?? '')),'um'=>trim((string)($it['u_m'] ?? '')),'source'=>$source,'wi'=>$source === 'WITHDRAWAL' ? $wi : null];
     }
     if (!$valid) throw new RuntimeException('Add at least one valid invoice line.');
     $pdo->prepare('UPDATE invoices SET customer_id=?,invoice_number=?,invoice_date=?,po_no=?,memo=?,status="Draft",updated_by=? WHERE id=?')->execute([$customerId,$invoiceNumber,$date,$po ?: null,$memo,$_SESSION['user']['id'],$invoiceId]);

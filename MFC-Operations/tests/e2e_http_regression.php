@@ -162,6 +162,12 @@ try {
     $invoiceId = (int)$pdo->query("SELECT id FROM invoices WHERE withdrawal_id={$withdrawalId}")->fetchColumn();
     $assert($invoiceId > 0 && (int)$pdo->query("SELECT COUNT(*) FROM invoice_items WHERE invoice_id={$invoiceId}")->fetchColumn() === 2, 'Opening invoice preparation did not create a separate two-line draft.');
     $invoiceToken = $csrf($invoicePage['body']);
+    $invoiceLineIds = [];
+    foreach ([$productA, $productB] as $productId) {
+        $invoiceLineIdQuery = $pdo->prepare('SELECT id FROM invoice_items WHERE invoice_id=? AND product_id=? ORDER BY id LIMIT 1');
+        $invoiceLineIdQuery->execute([$invoiceId, $productId]);
+        $invoiceLineIds[] = (string)$invoiceLineIdQuery->fetchColumn();
+    }
     $invoicePayload = [
         '_csrf' => $invoiceToken,
         'invoice_id' => (string)$invoiceId,
@@ -172,8 +178,8 @@ try {
         'po_no' => 'PO-E2E-01',
         'memo' => 'Synthetic invoice memo',
         'items' => [
-            ['id' => '', 'source_type' => 'WITHDRAWAL', 'withdrawal_item_id' => '1', 'product_id' => (string)$productA, 'site_id' => (string)$siteId, 'quantity' => '10', 'lot_number' => '', 'item_code' => 'QB-ALPHA-01', 'description' => 'ignored source label', 'u_m' => 'BOX', 'price_each' => '25.00', 'expiration_date' => '', 'tax_code' => 'Non'],
-            ['id' => '', 'source_type' => 'WITHDRAWAL', 'withdrawal_item_id' => '2', 'product_id' => (string)$productB, 'site_id' => (string)$siteId, 'quantity' => '2', 'lot_number' => '', 'item_code' => 'QB-BETA-02', 'description' => '', 'u_m' => 'CASE', 'price_each' => '40.50', 'expiration_date' => '', 'tax_code' => 'Non'],
+            ['id' => $invoiceLineIds[0], 'source_type' => 'WITHDRAWAL', 'withdrawal_item_id' => '1', 'product_id' => (string)$productA, 'site_id' => (string)$siteId, 'quantity' => '10', 'lot_number' => '', 'item_code' => 'QB-ALPHA-01', 'description' => 'ignored source label', 'u_m' => 'BOX', 'price_each' => '25.00', 'expiration_date' => '', 'tax_code' => 'Non'],
+            ['id' => $invoiceLineIds[1], 'source_type' => 'WITHDRAWAL', 'withdrawal_item_id' => '2', 'product_id' => (string)$productB, 'site_id' => (string)$siteId, 'quantity' => '2', 'lot_number' => '', 'item_code' => 'QB-BETA-02', 'description' => '', 'u_m' => 'CASE', 'price_each' => '40.50', 'expiration_date' => '', 'tax_code' => 'Non'],
         ],
     ];
     $invoiceSaved = $request('/backend/controllers/invoice_save.php', $invoicePayload);
@@ -184,10 +190,49 @@ try {
     $assert(count($invoiceLines) === 2 && $invoiceLines[0]['item_code'] === 'QB-ALPHA-01' && $invoiceLines[0]['description'] === 'Chicken QB description' && (float)$invoiceLines[0]['amount'] === 250.0 && (float)$invoiceLines[1]['amount'] === 81.0, 'Invoice mappings, descriptions, or amounts were incorrect.');
     $invoiceReload = $request('/frontend/invoice_preparation.php?withdrawal_no=' . rawurlencode($withdrawalNo));
     $assert($invoiceReload['status'] === 200 && str_contains($invoiceReload['body'], 'Synthetic invoice memo'), 'Saved invoice memo did not reload.');
-    $passCase('INVOICE-HTTP-01', 'Loaded, saved, and reloaded a two-line invoice draft with QB mappings, descriptions, amounts, PO, and memo.');
+    $assert(str_contains($invoiceReload['body'], 'Readiness checks') && str_contains($invoiceReload['body'], 'posting is unavailable'), 'Invoice page does not distinguish local draft from QuickBooks readiness.');
+    $pdo->prepare('UPDATE clients SET qb_list_id=NULL WHERE id=?')->execute([$clientId]);
+    $invoiceMappingPage = $request('/frontend/invoice_preparation.php?withdrawal_no=' . rawurlencode($withdrawalNo));
+    $pdo->prepare('UPDATE clients SET qb_list_id=? WHERE id=?')->execute(['TEST-CUSTOMER-LISTID', $clientId]);
+    $assert(str_contains($invoiceMappingPage['body'], 'Customer has no QuickBooks ListID'), 'Invoice readiness did not block a missing customer ListID.');
+    foreach ([$productA, $productB] as $index => $productId) {
+        $invoiceLineIdQuery = $pdo->prepare('SELECT id FROM invoice_items WHERE invoice_id=? AND product_id=? ORDER BY id LIMIT 1');
+        $invoiceLineIdQuery->execute([$invoiceId, $productId]);
+        $invoiceLineIds[$index] = (string)$invoiceLineIdQuery->fetchColumn();
+        $invoicePayload['items'][$index]['id'] = $invoiceLineIds[$index];
+    }
+    $sourceIds = [];
+    foreach ([$productA, $productB] as $productId) {
+        $sourceQuery = $pdo->prepare('SELECT id FROM withdrawal_items WHERE withdrawal_id=? AND product_id=?');
+        $sourceQuery->execute([$withdrawalId, $productId]);
+        $sourceIds[] = (string)$sourceQuery->fetchColumn();
+    }
+    foreach ([
+        ['missing source ID', static function (array &$payload): void { $payload['items'][0]['withdrawal_item_id'] = ''; }],
+        ['invalid source ID', static function (array &$payload): void { $payload['items'][0]['withdrawal_item_id'] = '99999999'; }],
+        ['mismatched source product', static function (array &$payload) use ($productB): void { $payload['items'][0]['product_id'] = (string)$productB; $payload['items'][0]['item_code'] = 'QB-BETA-02'; }],
+    ] as [$caseName, $mutate]) {
+        $invalidInvoice = $invoicePayload;
+        $mutate($invalidInvoice);
+        $request('/backend/controllers/invoice_save.php', $invalidInvoice);
+        $assert($pdo->query("SELECT invoice_number FROM invoices WHERE id={$invoiceId}")->fetchColumn() === 'E2E-INV-0001' && (int)$pdo->query("SELECT COUNT(*) FROM invoice_items WHERE invoice_id={$invoiceId}")->fetchColumn() === 2, "Invoice {$caseName} changed the saved draft.");
+        $errorPage = $request('/frontend/invoice_preparation.php?withdrawal_no=' . rawurlencode($withdrawalNo));
+        $expectedError = str_contains($caseName, 'missing') ? 'A withdrawal-sourced invoice line must reference a valid withdrawal item.' : (str_contains($caseName, 'invalid') ? 'A withdrawal-sourced invoice line must keep its saved source withdrawal item.' : 'A source invoice line no longer matches this withdrawal product.');
+        $assert(str_contains($errorPage['body'], $expectedError), "Invoice {$caseName} did not return the expected validation error.");
+    }
+    $additionalInvoice = $invoicePayload;
+    $additionalInvoice['items'][0]['withdrawal_item_id'] = $sourceIds[0];
+    $additionalInvoice['items'][1]['withdrawal_item_id'] = $sourceIds[1];
+    $additionalInvoice['items'][] = ['id' => '', 'source_type' => 'ADDITIONAL', 'withdrawal_item_id' => '', 'product_id' => (string)$productA, 'site_id' => (string)$siteId, 'quantity' => '1', 'lot_number' => '', 'item_code' => 'QB-ALPHA-01', 'description' => '', 'u_m' => 'BOX', 'price_each' => '25.00', 'expiration_date' => '', 'tax_code' => 'Non'];
+    $request('/backend/controllers/invoice_save.php', $additionalInvoice);
+    $additionalLine = $pdo->query("SELECT source_type,withdrawal_item_id FROM invoice_items WHERE invoice_id={$invoiceId} ORDER BY id DESC LIMIT 1")->fetch();
+    $assert($additionalLine['source_type'] === 'ADDITIONAL' && $additionalLine['withdrawal_item_id'] === null, 'Valid additional invoice line did not save without a source withdrawal item.');
+    $passCase('INVOICE-HTTP-01', 'Withdrawal lines require matching source rows; missing, invalid, and mismatched references are rejected, while an explicit additional line saves. Local draft readiness remains distinct from posting.');
 
+    $pdo->prepare('UPDATE products SET qb_description=NULL WHERE id=?')->execute([$productB]);
     $soPage = $request('/frontend/sales_order_preparation.php?withdrawal_no=' . rawurlencode($withdrawalNo));
-    $assert($soPage['status'] === 200 && str_contains($soPage['body'], 'S.O. NO.') && !str_contains($soPage['body'], 'Invoice No.'), 'Sales Order label is incorrect.');
+    $pdo->prepare('UPDATE products SET qb_description=? WHERE id=?')->execute(['Beef QB description', $productB]);
+    $assert($soPage['status'] === 200 && str_contains($soPage['body'], 'S.O. NO.') && !str_contains($soPage['body'], 'Invoice No.') && str_contains($soPage['body'], 'data-confirm-submit') && str_contains($soPage['body'], 'Readiness checks'), 'Sales Order label, shared confirmation, or readiness display is missing.');
     $soId = (int)$pdo->query("SELECT id FROM sales_orders WHERE withdrawal_id={$withdrawalId}")->fetchColumn();
     $assert($soId > 0 && (int)$pdo->query("SELECT COUNT(*) FROM sales_order_items WHERE sales_order_id={$soId}")->fetchColumn() === 2, 'Sales Order preparation did not create a separate two-line local draft.');
     preg_match('/<thead[^>]*>(.*?)<\/thead>/si', $soPage['body'], $thead);
@@ -197,7 +242,8 @@ try {
     $assert($columns === $expectedColumns, 'Sales Order columns do not match the required exact order. Found: ' . implode(' | ', $columns));
     $soLineA = $pdo->query("SELECT item_code,qb_item_list_id,description FROM sales_order_items WHERE sales_order_id={$soId} AND product_id={$productA}")->fetch();
     $soLineB = $pdo->query("SELECT item_code,qb_item_list_id,description FROM sales_order_items WHERE sales_order_id={$soId} AND product_id={$productB}")->fetch();
-    $assert($soLineA['item_code'] === 'QB-ALPHA-01' && $soLineB['item_code'] === 'QB-BETA-02' && $soLineA['description'] === 'Chicken QB description' && $soLineB['description'] === 'Beef QB description', 'Sales Order failed to display/store mapped QB codes separately from descriptions.');
+    $assert($soLineA['item_code'] === 'QB-ALPHA-01' && $soLineB['item_code'] === 'QB-BETA-02' && $soLineA['description'] === 'Chicken QB description' && $soLineB['description'] === '', 'Sales Order failed to preserve mapped QB descriptions or keep a missing description blank.');
+    $assert(!str_contains($soPage['body'], 'Chicken withdrawal label') && !str_contains($soPage['body'], 'Beef withdrawal label') && str_contains($soPage['body'], 'QuickBooks item ListID is missing') === false, 'Sales Order unexpectedly used the HT description fallback or failed synthetic ListID readiness.');
     $soToken = $csrf($soPage['body']);
     $soPayload = [
         '_csrf' => $soToken,
@@ -221,6 +267,10 @@ try {
     $assert(count($soLines) === 2 && (float)$soLines[0]['amount'] === 250.0 && (float)$soLines[1]['amount'] === 81.0 && $soLines[0]['qb_item_list_id'] === 'TEST-ITEM-LIST-A' && $soLines[1]['qb_item_list_id'] === 'TEST-ITEM-LIST-B', 'Sales Order values, calculated amounts, or internal QB references were incorrect.');
     $soReload = $request('/frontend/sales_order_preparation.php?withdrawal_no=' . rawurlencode($withdrawalNo));
     $assert($soReload['status'] === 200 && str_contains($soReload['body'], 'E2E-SO-0001') && str_contains($soReload['body'], 'Synthetic SO memo'), 'Saved Sales Order draft did not reload.');
+    $pdo->prepare('UPDATE products SET qb_list_id=NULL WHERE id=?')->execute([$productB]);
+    $soMappingPage = $request('/frontend/sales_order_preparation.php?withdrawal_no=' . rawurlencode($withdrawalNo));
+    $pdo->prepare('UPDATE products SET qb_list_id=? WHERE id=?')->execute(['TEST-ITEM-LIST-B', $productB]);
+    $assert(str_contains($soMappingPage['body'], 'Line 2: QuickBooks item ListID is missing'), 'Sales Order readiness did not block a missing item ListID.');
     $passCase('SALES-ORDER-HTTP-01', 'Created, validated, saved, and reloaded a two-line local Sales Order with separate QB codes/ListIDs and calculated amounts.');
 
     $badSo = $soPayload;

@@ -239,6 +239,14 @@ The README documents a staged migration for product/site permissions and mapping
 
 The remediation and local draft paths received isolated-database, CLI, authenticated HTTP, and Edge browser checks. The 2026-10-20 browser run exercised withdrawal creation/reopen, invoice/Sales Order draft save/reload, narrow table scrolling, mapping display, and invoice/Sales Order print output with synthetic test records. The local Edge session could not load external Bootstrap/SweetAlert CDN assets; a native confirmation fallback was verified, while CDN-dependent styling remains unverified. Role/CRUD coverage, the dedicated withdrawal print route, deployed HTTPS, and QuickBooks integration readiness remain open. See `E2E_REGRESSION_RESULTS.md`.
 
+### E. QuickBooks readiness preparation (2026-10-20)
+
+- `backend/core/quickbooks_readiness.php` performs read-only preflight checks for saved invoice and Sales Order drafts. It checks current client/product active state, customer/item QB ListIDs, QB Code/description, duplicate local mappings, and basic quantity/rate values; it always blocks posting while the connector/company file and mappings remain unverified. It neither creates jobs nor sends requests.
+- Invoice saving now requires each `WITHDRAWAL` line to reference a withdrawal item belonging to the source withdrawal and the same product. `ADDITIONAL` remains an explicit valid source type and can omit the source ID. Isolated HTTP coverage rejects missing, invalid, and mismatched source references and accepts an additional line.
+- Sales Order draft save now uses the common confirmation attributes/handler. New Sales Order lines preserve an empty QB Description rather than filling it from HT description or product name.
+- Read-only mapping inventory found 92 app-active products and 2 inactive; 18 active rows lack QB Code and QB Description, and all 92 lack QB ListID. All 816 active local clients lack QB ListID. The schema has no stock/lifecycle state, so no products were classified as out-of-stock or phased-out and no product/customer data was changed. See `PRODUCT_MAPPING_READINESS.md` and `QUICKBOOKS_READINESS_AUDIT.md`.
+- The code/settings name Desktop Enterprise 24.0 and the README describes Web Connector/qbXML as the intended path, but the actual installation, company file, and connector have not been verified. No live/sandbox QuickBooks call or transaction was made. See `QUICKBOOKS_INTEGRATION_DESIGN.md` and `QUICKBOOKS_INTEGRATION_TEST_RESULTS.md`.
+
 ## 7. Database and migration safety
 
 The application README documents XAMPP setup and database upgrade steps. Important rules:

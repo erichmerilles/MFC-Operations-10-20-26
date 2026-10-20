@@ -37,8 +37,8 @@
 | AUTH-HTTP-04 | Logout with CSRF invalidates session | Valid POST redirected; replayed old session to protected dashboard redirected to login | PASS |
 | WITHDRAWAL-HTTP-01 | Two-line withdrawal persists and reopens accurately | Created through form/controller; DB header, two lines, quantities, and reopened product verified | PASS |
 | CSV-HTTP-01 | Export keeps CSV structure and neutralizes formula input | CSV response parsed with `fgetcsv`; formula prefix neutralized; quote/comma/newline preserved | PASS |
-| INVOICE-HTTP-01 | Invoice draft saves/reloads without altering source; mapped fields and memo persist | Two lines, QB Codes, QB descriptions, PO, memo, and amounts 250.00/81.00 verified in DB and reload | PASS |
-| SALES-ORDER-HTTP-01 | SO header, 13 columns, mappings, and totals are correct | `S.O. NO.`; exact column order; two mapped QB Codes, separate synthetic ListIDs, descriptions, memo, and amounts 250.00/81.00 verified | PASS |
+| INVOICE-HTTP-01 | Invoice draft source integrity and explicit additional-line behavior | Two mapped lines and one explicit `ADDITIONAL` line persisted; missing/invalid source IDs and mismatched source products were rejected with the previous draft intact | PASS |
+| SALES-ORDER-HTTP-01 | SO header, 13 columns, mappings, readiness, and totals are correct | `S.O. NO.`; exact column order; mapped QB Codes/ListIDs; missing QB description stayed blank on initial copy; saved descriptions/memo and amounts were verified; readiness panel rendered | PASS |
 | SALES-ORDER-HTTP-02 | Missing required SITE rejected on backend | Direct POST returned line 1 SITE error; previous draft and lines unchanged | PASS |
 | SALES-ORDER-HTTP-03 | Missing QB mapping blocks save; no fallback | Temporarily blanked synthetic product mapping; line 2 error returned; saved draft unchanged; test mapping restored | PASS |
 | SALES-ORDER-HTTP-04 | Invalid monetary grouping rejected | Direct POST with RATE `1,2` returned line 1 RATE error; saved draft unchanged | PASS |
@@ -49,6 +49,7 @@
 | F08-DB | Login throttle is per IP and recovers after window | 20 failed records throttled one IP, did not affect another, recovered after 16 minutes | PASS |
 | F04/F05/F09-SRC | Retry, subtotal wording, API, logout method/token guards match expectations | Source assertions passed; these do not prove browser behavior | PASS (source-level only) |
 | PHP-LINT | All PHP files parse | 34 files passed `php -l` | PASS |
+| F11-SOURCE-READINESS | Invoice/Sales Order QuickBooks preparation guards remain present | QA assertions cover strict invoice source validation, shared Sales Order confirmation, no HT description fallback, and central readiness checks | PASS |
 | OPERATIONAL-FK-READ | Configured schema has historical product/site delete rules | `information_schema` showed `RESTRICT` on withdrawal, invoice, and Sales Order product/site references | PASS (read-only inspection) |
 | UI-BROWSER | Desktop/narrow withdrawal, invoice, Sales Order; save/reload, mapping, print | Edge 155 assertions passed for withdrawal create/reopen and invoice/SO save/reload; Sales Order columns, QB codes, and descriptions matched. Screenshots/PDFs are in `tests/evidence/phase2/`. No JS runtime errors were captured. | PASS (scoped; see limitations) |
 | QB-POST | Invoice/SO transmitted and reconciled in QB Enterprise 24.0 | No connector/request processor/company-file test environment; no posting attempted | BLOCKED |
@@ -58,10 +59,10 @@
 | WITHDRAWAL-INVALID | Invalid dates/IDs/quantities, duplicate numbers, edit and rollback | Valid create/reopen path tested; remaining negative/edit cases not exercised | NOT RUN |
 | INVOICE-NEGATIVE | Duplicate number, invalid tax/date/price, invoice API scope/pagination/retry | Valid draft path tested; negative and history/API browser scenarios not exercised | NOT RUN |
 | PRINT-OUTPUT | Printed withdrawal/invoice/SO layout excludes screen controls | Invoice and Sales Order PDFs rendered on one landscape page with all line columns and subtotal; navigation/action controls were hidden. The dedicated `withdrawal_print.php` route was not opened. | PARTIAL |
-| MAPPING-READINESS | Active company mappings complete and authoritative | Fresh read-only inventory found 92 active products: 1 missing HT Code, 18 missing QB Codes/descriptions, all 92 missing ListIDs; no duplicate mapping codes/IDs. See `PRODUCT_MAPPING_RECONCILIATION.md`. | NEEDS REVIEW (business data) |
+| MAPPING-READINESS | Active company mappings complete and authoritative | Read-only inventory found 92 app-active and 2 inactive products: 18 active missing QB Codes/descriptions and all 92 missing ListIDs; all 816 active clients lack ListIDs. Stock/lifecycle and current-company verification are unavailable. See `PRODUCT_MAPPING_READINESS.md`. | NEEDS REVIEW (business data) |
 | MIGRATION-PROVENANCE | Migration ledger identifies the deployment event | No migration-history table found/used; current FK definitions match target RESTRICT behavior, provenance is unknown | NEEDS REVIEW |
 
-**Counts for the matrix above:** 21 PASS, 2 BLOCKED, 4 NOT RUN, 1 PARTIAL, 2 NEEDS REVIEW, 0 application FAIL. The E2E program reports 14 passed cases including isolated fixture setup; the matrix splits these into individual HTTP assertions. The isolated/source groups and lint/schema checks are separately represented in the matrix.
+**Counts for the matrix above:** 22 PASS, 2 BLOCKED, 4 NOT RUN, 1 PARTIAL, 2 NEEDS REVIEW, 0 application FAIL. The E2E program reports 14 passed cases including isolated fixture setup; the matrix splits these into individual HTTP assertions. The isolated/source groups and lint/schema checks are separately represented in the matrix.
 
 ## Current configured database (read-only)
 

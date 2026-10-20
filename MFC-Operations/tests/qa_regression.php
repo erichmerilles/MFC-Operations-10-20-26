@@ -155,6 +155,15 @@ try {
     qa_assert(str_contains($loginSource, "assets/images/login.png") && is_file(__DIR__ . '/../frontend/assets/images/login.png'), 'Login page references a missing background image.');
     qa_assert(str_contains($sharedJs, 'async function confirmAction') && str_contains($sharedJs, 'window.Swal.fire') && str_contains($sharedJs, 'window.confirm('), 'Confirmation actions need both the styled dialog and native-browser fallback.');
     echo "PASS F10: login asset exists and shared confirmations have an offline fallback\n";
+
+    $invoiceSaveSource = file_get_contents(__DIR__ . '/../backend/controllers/invoice_save.php');
+    qa_assert(str_contains($invoiceSaveSource, 'if ($source === \'WITHDRAWAL\')') && str_contains($invoiceSaveSource, 'if (!$wi) throw new RuntimeException') && str_contains($invoiceSaveSource, '$sourceProductId === null') && str_contains($invoiceSaveSource, '(int)$sourceProductId !== (int)$product[\'id\']') && str_contains($invoiceSaveSource, 'SELECT source_type,withdrawal_item_id,product_id FROM invoice_items WHERE id=? AND invoice_id=?') && str_contains($invoiceSaveSource, 'An existing invoice line source cannot be changed.'), 'Withdrawal-sourced invoice lines do not require a matching source withdrawal item.');
+    qa_assert(str_contains($invoiceSaveSource, "['WITHDRAWAL', 'ADDITIONAL']") && str_contains($invoiceSaveSource, "'ADDITIONAL'"), 'Invoice source type does not explicitly preserve valid additional lines.');
+    $salesOrderSource = file_get_contents(__DIR__ . '/../frontend/sales_order_preparation.php');
+    qa_assert(str_contains($salesOrderSource, 'data-confirm-submit="Save this Sales Order draft locally?') && !str_contains($salesOrderSource, 'master_ht_description ?? $line[\'master_name\']'), 'Sales Order confirmation or QB-description-only initialization regressed.');
+    $readinessSource = file_get_contents(__DIR__ . '/../backend/core/quickbooks_readiness.php');
+    qa_assert(str_contains($readinessSource, 'quickbooks_transaction_readiness') && str_contains($readinessSource, 'qb_customer_list_id') && str_contains($readinessSource, 'qb_list_id_count') && str_contains($readinessSource, 'posting is unavailable'), 'Central QuickBooks readiness checks do not cover customer/item identifiers and disabled posting.');
+    echo "PASS F11: invoice source integrity, Sales Order confirmation/description, and readiness guards\n";
 } finally {
     if ($pdo->inTransaction()) $pdo->rollBack();
     foreach (array_reverse($createdTables) as $table) $pdo->exec("DROP TABLE IF EXISTS `{$table}`");

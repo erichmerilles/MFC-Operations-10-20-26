@@ -32,7 +32,6 @@ try {
             $quantity = (int)$line['quantity'];
             $rate = $line['default_price'] === null ? null : (float)$line['default_price'];
             $description = trim((string)($line['qb_description'] ?? ''));
-            if ($description === '') $description = trim((string)($line['ht_description'] ?? $line['master_ht_description'] ?? $line['master_name'] ?? $line['product_name']));
             $itemName = (string)($line['master_name'] ?: $line['product_name']);
             $insertLine->execute([$orderId, $index + 1, $line['product_id'], $itemName, $line['qb_code'], $line['qb_list_id'], null, $description, $quantity, null, $line['u_m'], $rate, null, round($quantity * (float)$rate, 2, PHP_ROUND_HALF_UP), null, null, null, null]);
         }
@@ -49,6 +48,8 @@ try {
 $lineQuery = $pdo->prepare('SELECT * FROM sales_order_items WHERE sales_order_id=? ORDER BY line_no');
 $lineQuery->execute([$order['id']]);
 $lines = $lineQuery->fetchAll();
+require_once __DIR__ . '/../backend/core/quickbooks_readiness.php';
+$quickBooksReadiness = quickbooks_transaction_readiness($pdo, 'sales_order', (int)$order['id']);
 $formState = $_SESSION['_sales_order_form'] ?? null;
 unset($_SESSION['_sales_order_form']);
 if (is_array($formState) && (int)($formState['id'] ?? 0) === (int)$order['id']) {
@@ -97,10 +98,10 @@ $total = array_sum(array_map(static fn(array $line): float => (float)$line['amou
         <a href="withdrawals.php" class="btn btn-light"><i class="bi bi-arrow-left" aria-hidden="true"></i> Select withdrawal</a>
     </div>
 </div>
-<div class="notice warning"><strong>QuickBooks posting is unavailable:</strong> this installation has no verified Sales Order integration or company-file mappings. Drafts save locally; Sales Order submission remains disabled. Optional class, status, fulfilled quantity, and tax values are retained locally.</div>
+<div class="notice warning"><strong>QuickBooks posting is unavailable:</strong> this installation has no verified Sales Order integration or company-file mappings. Drafts save locally; Sales Order submission remains disabled. Optional class, status, fulfilled quantity, and tax values are retained locally. <details><summary>Readiness checks (<?= count($quickBooksReadiness['blockers']) ?> blocker(s))</summary><ul><?php foreach ($quickBooksReadiness['blockers'] as $blocker): ?><li><?= e($blocker) ?></li><?php endforeach; ?></ul></details></div>
 <?php $notice = take_flash();
 if ($notice): ?><div class="alert alert-<?= e($notice['type']) ?>" role="status"><?= e($notice['message']) ?></div><?php endif; ?>
-<form method="post" action="<?= e(APP_BASE_URL) ?>/backend/controllers/sales_order_save.php" id="salesOrderForm">
+<form method="post" action="<?= e(APP_BASE_URL) ?>/backend/controllers/sales_order_save.php" id="salesOrderForm" data-confirm-submit="Save this Sales Order draft locally? It will not be sent to QuickBooks." data-confirm-title="Save Sales Order draft?" data-confirm-button="Save draft">
     <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
     <input type="hidden" name="sales_order_id" value="<?= (int)$order['id'] ?>">
     <input type="hidden" name="withdrawal_no" value="<?= e($withdrawalNo) ?>">

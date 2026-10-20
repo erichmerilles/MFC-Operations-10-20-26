@@ -7,7 +7,7 @@
 ## Verified
 
 - Fourteen authenticated HTTP/database end-to-end cases passed against synthetic fixtures in the guarded `test` schema.
-- `php tests/qa_regression.php` passed all six groups, including historical FK behavior, CSV sanitization, audit rollback, throttling, source guards, login asset, and confirmation fallback checks.
+- `php tests/qa_regression.php` passed all seven groups, including historical FK behavior, CSV sanitization, audit rollback, throttling, source guards, login asset/confirmation fallback, and new QuickBooks readiness/source validation guards.
 - All 34 PHP files passed `php -l`.
 - Edge 155 browser acceptance covered a two-line withdrawal create/save/reopen, invoice draft save/reload, Sales Order draft save/reload, exact 13-column order, QB item codes separate from descriptions, and narrow table scrolling.
 - Edge print media hid transaction screen controls. Invoice and Sales Order PDFs each fit on one landscape page with line subtotals; screenshots and PDFs are under [`tests/evidence/phase2/`](tests/evidence/phase2/).
@@ -16,9 +16,9 @@
 ## Open items
 
 - QuickBooks posting and dedicated company-file reconciliation are unavailable and untested.
-- The current active product master has 92 products, 18 missing QB Codes/descriptions, and all 92 missing QB ListIDs. See [`PRODUCT_MAPPING_RECONCILIATION.md`](PRODUCT_MAPPING_RECONCILIATION.md).
+- The current product master has 92 app-active and 2 inactive products. 18 active products lack QB Codes/descriptions, all 92 active products lack QB ListIDs, and all 816 active clients lack QB ListIDs. Per-product stock/lifecycle state is not stored. See [`PRODUCT_MAPPING_READINESS.md`](PRODUCT_MAPPING_READINESS.md) and [`PRODUCT_MAPPING_RECONCILIATION.md`](PRODUCT_MAPPING_RECONCILIATION.md).
 - Role-specific CRUD/permission coverage, invoice-history retry/pagination, remaining negative cases, deployed HTTPS/proxy behavior, and the dedicated `withdrawal_print.php` route remain unverified.
-- The local Edge browser could not load external Bootstrap/SweetAlert CDN resources. Native confirmation fallback worked; CDN-styled dialogs and the Bootstrap-dependent login appearance need verification in the target network environment.
+- The local Edge browser could not load external Bootstrap/SweetAlert CDN resources. Native confirmation fallback worked in the earlier browser pass; this task's separate headless confirm/cancel interaction check was blocked by an Edge GPU-process fatal error. CDN-styled dialogs, current Sales Order click/cancel behavior, and the Bootstrap-dependent login appearance need verification in a working browser environment.
 - Git executable was unavailable, so branch, commit, and full working-tree baseline could not be recorded.
 
 ## Before production
@@ -29,3 +29,5 @@
 4. Inspect each target database's current foreign-key definitions and migration history before applying any migration.
 
 See [`E2E_REGRESSION_RESULTS.md`](E2E_REGRESSION_RESULTS.md) for case-level evidence and [`E2E_REGRESSION_TEST_PLAN.md`](E2E_REGRESSION_TEST_PLAN.md) for safe reproduction steps.
+
+QuickBooks mapping counts, readiness design, and this task's test statuses are in [`QUICKBOOKS_READINESS_AUDIT.md`](QUICKBOOKS_READINESS_AUDIT.md), [`PRODUCT_MAPPING_READINESS.md`](PRODUCT_MAPPING_READINESS.md), [`QUICKBOOKS_INTEGRATION_DESIGN.md`](QUICKBOOKS_INTEGRATION_DESIGN.md), and [`QUICKBOOKS_INTEGRATION_TEST_RESULTS.md`](QUICKBOOKS_INTEGRATION_TEST_RESULTS.md).

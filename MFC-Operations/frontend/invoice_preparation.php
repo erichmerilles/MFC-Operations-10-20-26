@@ -111,6 +111,8 @@ $s = $pdo->prepare(
 );
 $s->execute([$inv['id']]);
 $lines = $s->fetchAll();
+require_once __DIR__ . '/../backend/core/quickbooks_readiness.php';
+$quickBooksReadiness = quickbooks_transaction_readiness($pdo, 'invoice', (int)$inv['id']);
 
 $products = get_products($pdo);
 $products = array_values(array_filter($products, static fn($p) => trim((string)($p['qb_code'] ?? '')) !== ''));
@@ -145,6 +147,7 @@ foreach ($lines as $ln) {
 <div class="notice warning">
     <strong>QuickBooks posting is unavailable:</strong>
     this installation has no Web Connector service or verified company-file mappings. Drafts save locally; sending is disabled to prevent unsupported fields or duplicate inventory effects.
+    <details><summary>Readiness checks (<?= count($quickBooksReadiness['blockers']) ?> blocker(s))</summary><ul><?php foreach ($quickBooksReadiness['blockers'] as $blocker): ?><li><?= e($blocker) ?></li><?php endforeach; ?></ul></details>
 </div>
 
 <form
