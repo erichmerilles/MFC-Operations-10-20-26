@@ -239,7 +239,7 @@ Current aggregate counts: 2 employees, 819 clients, 94 products (92 active), 3 w
 6. Make master-data writes and activity logs atomic.
 7. Confirm and harden web-session cookie policy; verify login throttling and convert logout to CSRF-protected POST.
 8. Run authenticated functional and responsive/print tests on a disposable database and browser.
-9. Treat QuickBooks integration as a separate implementation/testing milestone; populate real ListIDs and verify Web Connector/qbXML only against an approved test company file.
+9. Treat QuickBooks integration as a separate implementation/testing milestone; resolve authoritative customer/item FullNames and product-code associations, then verify Web Connector/qbXML only against an approved test company file. Stored ListIDs are optional where FullName references are supported.
 
 ## 14. Regression Testing Plan
 
@@ -272,7 +272,7 @@ The original audit findings and test table above are retained as the baseline. T
 
 | Finding | Baseline | Current result | Evidence and remaining work |
 |---|---|---|---|
-| F01 Product mappings | Incomplete active mappings | **Unresolved; safe review prepared** | `PRODUCT_MAPPING_REVIEW.md` lists active products with missing values using stable IDs and current mapping fields. Current read-only counts remain: 1 missing HT Code, 18 missing QB Codes, 18 missing QB Descriptions, and 92 missing ListIDs. No product mapping or active state was changed. Business mappings need authoritative company confirmation; ListIDs need a future verified QuickBooks lookup. |
+| F01 Product mappings | Incomplete active mappings | **Unresolved; safe review prepared** | `PRODUCT_MAPPING_REVIEW.md` lists active products with missing values using stable IDs and current mapping fields. Current read-only counts remain: 1 missing HT Code, 18 missing QB Codes, 18 missing QB Descriptions, and 92 missing legacy ListIDs. No product mapping or active state was changed. Business codes/FullNames need authoritative company confirmation; ListIDs are optional where a verified FullName reference is used. |
 | F02 Historical references | Deletion guards omitted Sales Orders; earlier schema used `SET NULL` | **Code fixed; configured schema currently has target rules** | Product/site guards and displayed reference counts include Sales Orders. Migration behavior and SO-only, mixed-reference, unused-delete cases passed in the isolated `test` schema. A later read-only inspection found the configured `withdrawal_qb` schema already reports `RESTRICT` for withdrawal, invoice, and Sales Order product/site references. There is no migration ledger, so provenance is unknown; do not rerun the migration there without inspecting its current FK names. |
 | F03 CSV formula injection | Text cells passed directly to `fputcsv` | **Fixed and focused-tested** | Text output cells are neutralized when formula prefixes follow whitespace/control/format characters; numeric quantity and line columns are not transformed. The isolated test covered `=`, `+`, `-`, `@`, leading controls, commas, quotes, embedded newlines, and ordinary text. Stored database values are not updated. |
 | F04 Invoice-history retry | Retry toggled accordion; pagination failures were unhandled | **Code fixed; browser scenarios unverified** | One loader handles initial load, retry, and pagination; failures render a retry action; request IDs ignore stale responses. Static checks passed. No browser assertion result was obtained, so the required network/HTTP failure, client-switch, empty-history, and final-page interactions remain unverified. |
@@ -301,7 +301,7 @@ The original audit findings and test table above are retained as the baseline. T
 ### Deployment steps and remaining risks
 
 1. Inspect the target database's actual FK names and delete rules before considering `20261020_restrict_historical_master_deletes.sql`. Run only where old `SET NULL` constraints remain and Sales Order tables exist. The configured database currently has the replacement `RESTRICT` constraints; do not run the migration there.
-2. Confirm authoritative HT/QB codes and descriptions for the rows in `PRODUCT_MAPPING_REVIEW.md`. Do not populate ListIDs until a verified QuickBooks lookup workflow exists.
+2. Confirm authoritative HT/QB codes and descriptions for the rows in `PRODUCT_MAPPING_REVIEW.md`. Verify product-code associations to actual QuickBooks item FullNames; do not populate legacy ListIDs merely to satisfy a local preflight.
 3. Verify Apache HTTPS termination sets `HTTPS`/port state correctly so session cookies receive `Secure`; assess any reverse proxy, firewall, or network-level login controls.
 4. Exercise authenticated client/product/site/settings CRUD, failed audit logging, login throttling from the actual staff network, logout/session rotation, and invoice-history retries in a browser using disposable fixtures.
 5. Keep QuickBooks readiness **not verified**. The current code still has no Sales Order posting processor or verified QBXML flow.
@@ -315,7 +315,7 @@ This section supersedes earlier statements about the local HTTP workflow coverag
 - The `test` schema was empty before setup and had zero tables after cleanup. No production/shared rows were used as fixtures.
 - Current read-only counts in `withdrawal_qb`: 819 clients, 94 products, 7 sites, 5 withdrawals/6 lines, 3 invoices/4 lines, and 2 Sales Orders/3 lines. Counts may change as staff use the application.
 - `information_schema` currently reports `RESTRICT` for withdrawal product, invoice product/site, and Sales Order product/site references. No migration ledger was identified. The deployed constraints have the target behavior, but their migration provenance is unknown; do not blindly rerun `20261020_restrict_historical_master_deletes.sql` against this configured database.
-- `PRODUCT_MAPPING_REVIEW.md` reports 1 active product missing HT Code, 18 missing QB Code, 18 missing QB Description, and 92 missing QuickBooks ListID. E2E mapping behavior passed only with synthetic values; authoritative mappings remain a business-data prerequisite.
+- `PRODUCT_MAPPING_REVIEW.md` reports 1 active product missing HT Code, 18 missing QB Code, 18 missing QB Description, and 92 missing stored QuickBooks ListID. E2E mapping behavior passed only with synthetic values; authoritative FullNames/code associations remain a business-data prerequisite.
 - Source search found no Web Connector processor, qbXML Invoice/Sales Order add request, or response reconciliation implementation. No QuickBooks posting was attempted.
 - Visual browser/responsive/print tests, role-specific CRUD, full HTTP throttle load, and deployed HTTPS/proxy behavior remain unverified. No usable Playwright/chromedriver setup was available. Git executable was unavailable, so branch/commit/worktree baseline remains unknown.
 

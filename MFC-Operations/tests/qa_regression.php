@@ -162,8 +162,8 @@ try {
     $salesOrderSource = file_get_contents(__DIR__ . '/../frontend/sales_order_preparation.php');
     qa_assert(str_contains($salesOrderSource, 'data-confirm-submit="Save this Sales Order draft locally?') && !str_contains($salesOrderSource, 'master_ht_description ?? $line[\'master_name\']'), 'Sales Order confirmation or QB-description-only initialization regressed.');
     $readinessSource = file_get_contents(__DIR__ . '/../backend/core/quickbooks_readiness.php');
-    qa_assert(str_contains($readinessSource, 'quickbooks_transaction_readiness') && str_contains($readinessSource, 'qb_customer_list_id') && str_contains($readinessSource, 'qb_list_id_count') && str_contains($readinessSource, 'posting is unavailable'), 'Central QuickBooks readiness checks do not cover customer/item identifiers and disabled posting.');
-    echo "PASS F11: invoice source integrity, Sales Order confirmation/description, and readiness guards\n";
+    qa_assert(str_contains($readinessSource, 'quickbooks_transaction_readiness') && str_contains($readinessSource, 'local_ready') && str_contains($readinessSource, 'integration_blockers') && str_contains($readinessSource, 'authoritative QuickBooks item FullName') && !str_contains($readinessSource, 'qb_list_id') && str_contains($readinessSource, 'posting is unavailable'), 'QuickBooks preflight must separate local validation from live name resolution and must not require stored ListIDs.');
+    echo "PASS F11: invoice source integrity, Sales Order confirmation/description, and name-based readiness guards\n";
 } finally {
     if ($pdo->inTransaction()) $pdo->rollBack();
     foreach (array_reverse($createdTables) as $table) $pdo->exec("DROP TABLE IF EXISTS `{$table}`");

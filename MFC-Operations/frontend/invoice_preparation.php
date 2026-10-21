@@ -116,7 +116,7 @@ $quickBooksReadiness = quickbooks_transaction_readiness($pdo, 'invoice', (int)$i
 
 $products = get_products($pdo);
 $products = array_values(array_filter($products, static fn($p) => trim((string)($p['qb_code'] ?? '')) !== ''));
-$customers = $pdo->query('SELECT id,client_name,qb_list_id FROM clients WHERE active=1 ORDER BY client_name')->fetchAll();
+$customers = $pdo->query('SELECT id,client_name FROM clients WHERE active=1 ORDER BY client_name')->fetchAll();
 $sites = get_sites($pdo);
 $locked = in_array($inv['status'], ['Invoiced', 'Queued', 'Processing', 'Uncertain Result'], true);
 
@@ -147,7 +147,10 @@ foreach ($lines as $ln) {
 <div class="notice warning">
     <strong>QuickBooks posting is unavailable:</strong>
     this installation has no Web Connector service or verified company-file mappings. Drafts save locally; sending is disabled to prevent unsupported fields or duplicate inventory effects.
-    <details><summary>Readiness checks (<?= count($quickBooksReadiness['blockers']) ?> blocker(s))</summary><ul><?php foreach ($quickBooksReadiness['blockers'] as $blocker): ?><li><?= e($blocker) ?></li><?php endforeach; ?></ul></details>
+    <details><summary>Readiness checks (<?= count($quickBooksReadiness['blockers']) ?> blocker(s))</summary>
+        <strong>Local draft checks</strong><?php if ($quickBooksReadiness['local_blockers']): ?><ul><?php foreach ($quickBooksReadiness['local_blockers'] as $blocker): ?><li><?= e($blocker) ?></li><?php endforeach; ?></ul><?php else: ?><p>Local required fields pass. This does not mean the customer or items were found in QuickBooks.</p><?php endif; ?>
+        <strong>QuickBooks live checks</strong><ul><?php foreach ($quickBooksReadiness['integration_blockers'] as $blocker): ?><li><?= e($blocker) ?></li><?php endforeach; ?></ul>
+    </details>
 </div>
 
 <form
@@ -182,7 +185,7 @@ foreach ($lines as $ln) {
                     <select class="form-select" name="customer_id" required <?= $locked ? 'disabled' : '' ?>>
                         <option value="">Select customer</option>
                         <?php foreach ($customers as $customer): ?>
-                            <option value="<?= (int)$customer['id'] ?>" <?= (int)$inv['customer_id'] === (int)$customer['id'] ? 'selected' : '' ?>><?= e($customer['client_name']) ?><?= !$customer['qb_list_id'] ? ' — QuickBooks mapping required' : '' ?></option>
+                            <option value="<?= (int)$customer['id'] ?>" <?= (int)$inv['customer_id'] === (int)$customer['id'] ? 'selected' : '' ?>><?= e($customer['client_name']) ?></option>
                         <?php endforeach; ?>
                     </select>
                     <?php if (!$locked): ?><div class="form-text">Defaults to the source withdrawal customer. Changing it affects this invoice only.</div><?php endif; ?>

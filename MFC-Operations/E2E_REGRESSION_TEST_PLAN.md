@@ -8,7 +8,7 @@
 
 This plan exercises real PHP pages and POST controllers through an isolated PHP development server backed by the empty MariaDB `test` schema. Fixtures are synthetic. The harness imports the current initial schema while skipping database selection and sample inserts, applies the additive Sales Order table migration, posts through the regular authentication/CSRF routes, verifies persisted values, and removes only the tables it created.
 
-Included: sign-in/out and session behavior, withdrawal create/reopen, invoice draft create/save/reload, Sales Order draft create/save/reload, QB Code/ListID separation, backend required-field and mapping checks, amount calculations, audit records, source-record preservation, CSV export, current FK rules, and previously remediated isolated cases.
+Included: sign-in/out and session behavior, withdrawal create/reopen, invoice draft create/save/reload, Sales Order draft create/save/reload, local QB Code/legacy-ID separation, backend required-field and mapping checks, amount calculations, audit records, source-record preservation, CSV export, current FK rules, and previously remediated isolated cases.
 
 Excluded from automated execution: QuickBooks posting, production/shared-database writes, verified company-file field mappings, deployed HTTPS/proxy behavior, staff-role CRUD paths, visual/browser layout and print-preview checks, and network-level security controls. No QuickBooks transaction is created by this suite.
 
@@ -42,7 +42,7 @@ The current configured operational database is `withdrawal_qb`. Do not use it as
 
 ## Fixtures
 
-The HTTP suite generates a temporary Admin employee with a synthetic password, one synthetic client with a synthetic customer ListID, one site, and two products whose HT Code, QB Code, QB description, legacy code, and QuickBooks ListID are deliberately distinct. It creates a two-line withdrawal, one invoice draft, and one local Sales Order draft. The product mapping is temporarily blanked in the isolated schema for the missing-mapping case and restored before cleanup.
+The HTTP suite generates a temporary Admin employee with a synthetic password, one synthetic client with no stored QuickBooks ListID, one site, and two products with distinct HT Code, QB Code, QB description and legacy code; both product ListIDs remain NULL. It creates a two-line withdrawal, one invoice draft, and one local Sales Order draft. The QB Code mapping is temporarily blanked in the isolated schema for the missing-mapping case and restored before cleanup. This verifies only local preflight behavior; it does not simulate a live QuickBooks name lookup.
 
 The suite uses a formula-leading withdrawal remark containing comma, quote, and newline characters to check CSV escaping and formula protection. It does not use operational customer or product records.
 
@@ -57,8 +57,8 @@ The suite uses a formula-leading withdrawal remark containing comma, quote, and 
 | AUTH-HTTP-04 | P1 | Authenticated synthetic user | POST logout with CSRF, then replay old session on dashboard | Logout redirects; replay redirects to sign-in |
 | WITHDRAWAL-HTTP-01 | P1 | Synthetic client/products/site | Load form; POST two valid lines; query DB; reopen form | One header and two correct source lines persist and reload |
 | CSV-HTTP-01 | P2 | Saved synthetic withdrawal | Download CSV and parse with CSV reader | Correct response type; formula-leading text prefixed safely; commas, quotes, newline preserved |
-| INVOICE-HTTP-01 | P1 | Saved withdrawal and active QB mappings | Open preparation; save header/memo/two lines; reload | Separate invoice draft; QB codes and QB descriptions; amounts 250.00 and 81.00; memo persists |
-| SALES-ORDER-HTTP-01 | P1 | Saved withdrawal and two distinct mappings | Open preparation; check exact headers; save and reload two lines | `S.O. NO.`; 13 columns in order; item code is QB Code; ListID stored separately; amounts 250.00 and 81.00 |
+| INVOICE-HTTP-01 | P1 | Saved withdrawal and local QB Codes/descriptions; no stored customer/product ListIDs | Open preparation; save header/memo/two lines; reload | Separate invoice draft; QB codes and QB descriptions; amounts 250.00 and 81.00; memo persists; local checks are separate from unresolved live FullName lookup |
+| SALES-ORDER-HTTP-01 | P1 | Saved withdrawal and two distinct QB Codes; no stored customer/product ListIDs | Open preparation; check exact headers; save and reload two lines | `S.O. NO.`; 13 columns in order; item code is QB Code; legacy ListID snapshots may remain NULL; amounts 250.00 and 81.00 |
 | SALES-ORDER-HTTP-02 | P1 | Existing saved draft | Submit directly with missing SITE | Backend rejects line 1; previously saved draft remains intact |
 | SALES-ORDER-HTTP-03 | P1 | Existing saved draft | Temporarily remove product 2 QB Code and submit | Backend reports missing line 2 mapping; no substitution; saved draft unchanged |
 | SALES-ORDER-HTTP-04 | P1 | Existing saved draft | Submit invalid comma grouping in RATE | Backend rejects the malformed rate; saved draft unchanged |

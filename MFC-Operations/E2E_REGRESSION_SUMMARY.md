@@ -4,6 +4,10 @@
 **Local acceptance decision:** **CONDITIONAL GO for continued supervised testing in an isolated local database.**  
 **Production QuickBooks decision:** **NO-GO.**
 
+## Follow-up: 2026-10-21
+
+The guarded 14-case HTTP suite passed with synthetic customer and product `qb_list_id` values NULL. Local Invoice/Sales Order saves and local readiness are no longer blocked by missing stored IDs; live exact FullName resolution remains unavailable and posting remains NO-GO. Current PHP lint passed for 33 files. The QA regression rerun stopped at F10 due to the login background path mismatch; see `QUICKBOOKS_INTEGRATION_TEST_RESULTS.md`.
+
 ## Verified
 
 - Fourteen authenticated HTTP/database end-to-end cases passed against synthetic fixtures in the guarded `test` schema.
@@ -16,14 +20,14 @@
 ## Open items
 
 - QuickBooks posting and dedicated company-file reconciliation are unavailable and untested.
-- The current product master has 92 app-active and 2 inactive products. 18 active products lack QB Codes/descriptions, all 92 active products lack QB ListIDs, and all 816 active clients lack QB ListIDs. Per-product stock/lifecycle state is not stored. See [`PRODUCT_MAPPING_READINESS.md`](PRODUCT_MAPPING_READINESS.md) and [`PRODUCT_MAPPING_RECONCILIATION.md`](PRODUCT_MAPPING_RECONCILIATION.md).
+- The current product master snapshot has 92 app-active and 2 inactive products. 18 active products lack QB Codes/descriptions; all active products and clients lack legacy stored QB ListIDs. ListID absence alone does not block supported FullName references, but actual customer/item FullNames and code associations remain unverified. Per-product stock/lifecycle state is not stored. See [`PRODUCT_MAPPING_READINESS.md`](PRODUCT_MAPPING_READINESS.md) and [`PRODUCT_MAPPING_RECONCILIATION.md`](PRODUCT_MAPPING_RECONCILIATION.md).
 - Role-specific CRUD/permission coverage, invoice-history retry/pagination, remaining negative cases, deployed HTTPS/proxy behavior, and the dedicated `withdrawal_print.php` route remain unverified.
 - The local Edge browser could not load external Bootstrap/SweetAlert CDN resources. Native confirmation fallback worked in the earlier browser pass; this task's separate headless confirm/cancel interaction check was blocked by an Edge GPU-process fatal error. CDN-styled dialogs, current Sales Order click/cancel behavior, and the Bootstrap-dependent login appearance need verification in a working browser environment.
 - Git executable was unavailable, so branch, commit, and full working-tree baseline could not be recorded.
 
 ## Before production
 
-1. Resolve every required mapping from an approved product crosswalk and verified QuickBooks Enterprise item list; never infer ListIDs.
+1. Resolve customer/item names and product code associations against an approved QuickBooks Enterprise company file; never infer FullNames or ListIDs.
 2. Approve an integration method and implement/test Invoice and Sales Order transactions in a dedicated QuickBooks test company, including duplicate and uncertain-response reconciliation.
 3. Complete the role matrix, remaining validation/history cases, dedicated withdrawal print verification, and target HTTPS/proxy checks.
 4. Inspect each target database's current foreign-key definitions and migration history before applying any migration.

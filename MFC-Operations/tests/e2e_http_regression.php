@@ -51,16 +51,16 @@ try {
     $employee = $pdo->prepare("INSERT INTO employees(full_name,username,password_hash,role,active) VALUES(?,?,?,'Admin',1)");
     $employee->execute(['E2E Test User', 'mfc-e2e-' . bin2hex(random_bytes(3)), password_hash('Synthetic-Test-Password-2026', PASSWORD_DEFAULT)]);
     $employeeId = (int)$pdo->lastInsertId();
-    $pdo->exec("INSERT INTO clients(client_name,qb_list_id,active) VALUES('E2E Synthetic Customer','TEST-CUSTOMER-LISTID',1)");
+    $pdo->exec("INSERT INTO clients(client_name,active) VALUES('E2E Synthetic Customer',1)");
     $clientId = (int)$pdo->lastInsertId();
     $pdo->exec("INSERT INTO sites(site_name,active) VALUES('E2E Synthetic Site',1)");
     $siteId = (int)$pdo->lastInsertId();
-    $product = $pdo->prepare('INSERT INTO products(product_name,ht_code,qb_code,ht_description,qb_description,item_code,description,u_m,default_price,qb_list_id,active) VALUES(?,?,?,?,?,?,?,?,?,?,1)');
-    $product->execute(['E2E Chicken', 'HT-E2E-01', 'QB-ALPHA-01', 'Chicken withdrawal label', 'Chicken QB description', 'Legacy-A', 'Legacy desc A', 'BOX', 25, 'TEST-ITEM-LIST-A']);
+    $product = $pdo->prepare('INSERT INTO products(product_name,ht_code,qb_code,ht_description,qb_description,item_code,description,u_m,default_price,qb_list_id,active) VALUES(?,?,?,?,?,?,?,?,?,NULL,1)');
+    $product->execute(['E2E Chicken', 'HT-E2E-01', 'QB-ALPHA-01', 'Chicken withdrawal label', 'Chicken QB description', 'Legacy-A', 'Legacy desc A', 'BOX', 25]);
     $productA = (int)$pdo->lastInsertId();
-    $product->execute(['E2E Beef', 'HT-E2E-02', 'QB-BETA-02', 'Beef withdrawal label', 'Beef QB description', 'Legacy-B', 'Legacy desc B', 'CASE', 40.5, 'TEST-ITEM-LIST-B']);
+    $product->execute(['E2E Beef', 'HT-E2E-02', 'QB-BETA-02', 'Beef withdrawal label', 'Beef QB description', 'Legacy-B', 'Legacy desc B', 'CASE', 40.5]);
     $productB = (int)$pdo->lastInsertId();
-    $passCase('E2E-SETUP', 'Empty test schema initialized from project DDL with synthetic customer, site, user, and two mapped products.');
+    $passCase('E2E-SETUP', 'Empty test schema initialized from project DDL with a synthetic customer and two QB-coded products, all with local ListIDs left NULL.');
 
     $request = static function (string $path, ?array $body = null, ?string $cookieOverride = null) use ($base, $cookieFile): array {
         $ch = curl_init($base . $path);
@@ -191,10 +191,8 @@ try {
     $invoiceReload = $request('/frontend/invoice_preparation.php?withdrawal_no=' . rawurlencode($withdrawalNo));
     $assert($invoiceReload['status'] === 200 && str_contains($invoiceReload['body'], 'Synthetic invoice memo'), 'Saved invoice memo did not reload.');
     $assert(str_contains($invoiceReload['body'], 'Readiness checks') && str_contains($invoiceReload['body'], 'posting is unavailable'), 'Invoice page does not distinguish local draft from QuickBooks readiness.');
-    $pdo->prepare('UPDATE clients SET qb_list_id=NULL WHERE id=?')->execute([$clientId]);
     $invoiceMappingPage = $request('/frontend/invoice_preparation.php?withdrawal_no=' . rawurlencode($withdrawalNo));
-    $pdo->prepare('UPDATE clients SET qb_list_id=? WHERE id=?')->execute(['TEST-CUSTOMER-LISTID', $clientId]);
-    $assert(str_contains($invoiceMappingPage['body'], 'Customer has no QuickBooks ListID'), 'Invoice readiness did not block a missing customer ListID.');
+    $assert(str_contains($invoiceMappingPage['body'], 'Customer name has not been resolved against the configured QuickBooks company file') && str_contains($invoiceMappingPage['body'], 'Local required fields pass') && !str_contains($invoiceMappingPage['body'], 'Customer has no QuickBooks ListID') && !str_contains($invoiceMappingPage['body'], 'QuickBooks mapping required'), 'Invoice readiness still requires a stored ListID or fails to distinguish local validation from live name resolution.');
     foreach ([$productA, $productB] as $index => $productId) {
         $invoiceLineIdQuery = $pdo->prepare('SELECT id FROM invoice_items WHERE invoice_id=? AND product_id=? ORDER BY id LIMIT 1');
         $invoiceLineIdQuery->execute([$invoiceId, $productId]);
@@ -243,7 +241,7 @@ try {
     $soLineA = $pdo->query("SELECT item_code,qb_item_list_id,description FROM sales_order_items WHERE sales_order_id={$soId} AND product_id={$productA}")->fetch();
     $soLineB = $pdo->query("SELECT item_code,qb_item_list_id,description FROM sales_order_items WHERE sales_order_id={$soId} AND product_id={$productB}")->fetch();
     $assert($soLineA['item_code'] === 'QB-ALPHA-01' && $soLineB['item_code'] === 'QB-BETA-02' && $soLineA['description'] === 'Chicken QB description' && $soLineB['description'] === '', 'Sales Order failed to preserve mapped QB descriptions or keep a missing description blank.');
-    $assert(!str_contains($soPage['body'], 'Chicken withdrawal label') && !str_contains($soPage['body'], 'Beef withdrawal label') && str_contains($soPage['body'], 'QuickBooks item ListID is missing') === false, 'Sales Order unexpectedly used the HT description fallback or failed synthetic ListID readiness.');
+    $assert(!str_contains($soPage['body'], 'Chicken withdrawal label') && !str_contains($soPage['body'], 'Beef withdrawal label') && str_contains($soPage['body'], 'QuickBooks item ListID is missing') === false, 'Sales Order unexpectedly used the HT description fallback or required a stored ListID.');
     $soToken = $csrf($soPage['body']);
     $soPayload = [
         '_csrf' => $soToken,
@@ -263,15 +261,13 @@ try {
     $assert($soSaved['status'] === 302, 'Sales Order draft POST did not redirect.');
     $soHeader = $pdo->query("SELECT so_number,memo,qb_customer_list_id FROM sales_orders WHERE id={$soId}")->fetch();
     $soLines = $pdo->query("SELECT item_code,qb_item_list_id,description,ordered_quantity,rate,amount FROM sales_order_items WHERE sales_order_id={$soId} ORDER BY line_no")->fetchAll();
-    $assert($soHeader['so_number'] === 'E2E-SO-0001' && $soHeader['memo'] === 'Synthetic SO memo' && $soHeader['qb_customer_list_id'] === 'TEST-CUSTOMER-LISTID', 'Sales Order header fields were not persisted correctly.');
-    $assert(count($soLines) === 2 && (float)$soLines[0]['amount'] === 250.0 && (float)$soLines[1]['amount'] === 81.0 && $soLines[0]['qb_item_list_id'] === 'TEST-ITEM-LIST-A' && $soLines[1]['qb_item_list_id'] === 'TEST-ITEM-LIST-B', 'Sales Order values, calculated amounts, or internal QB references were incorrect.');
+    $assert($soHeader['so_number'] === 'E2E-SO-0001' && $soHeader['memo'] === 'Synthetic SO memo' && $soHeader['qb_customer_list_id'] === null, 'Sales Order header fields were not persisted correctly without a stored customer ListID.');
+    $assert(count($soLines) === 2 && (float)$soLines[0]['amount'] === 250.0 && (float)$soLines[1]['amount'] === 81.0 && $soLines[0]['qb_item_list_id'] === null && $soLines[1]['qb_item_list_id'] === null, 'Sales Order values/amounts did not persist independently of stored item ListIDs.');
     $soReload = $request('/frontend/sales_order_preparation.php?withdrawal_no=' . rawurlencode($withdrawalNo));
     $assert($soReload['status'] === 200 && str_contains($soReload['body'], 'E2E-SO-0001') && str_contains($soReload['body'], 'Synthetic SO memo'), 'Saved Sales Order draft did not reload.');
-    $pdo->prepare('UPDATE products SET qb_list_id=NULL WHERE id=?')->execute([$productB]);
     $soMappingPage = $request('/frontend/sales_order_preparation.php?withdrawal_no=' . rawurlencode($withdrawalNo));
-    $pdo->prepare('UPDATE products SET qb_list_id=? WHERE id=?')->execute(['TEST-ITEM-LIST-B', $productB]);
-    $assert(str_contains($soMappingPage['body'], 'Line 2: QuickBooks item ListID is missing'), 'Sales Order readiness did not block a missing item ListID.');
-    $passCase('SALES-ORDER-HTTP-01', 'Created, validated, saved, and reloaded a two-line local Sales Order with separate QB codes/ListIDs and calculated amounts.');
+    $assert(str_contains($soMappingPage['body'], 'Line 2: QB Code has not been resolved to an authoritative QuickBooks item FullName') && str_contains($soMappingPage['body'], 'Local required fields pass') && !str_contains($soMappingPage['body'], 'QuickBooks item ListID is missing'), 'Sales Order readiness must identify the pending authoritative name lookup without requiring a stored ListID.');
+    $passCase('SALES-ORDER-HTTP-01', 'Created, validated, saved, and reloaded a two-line local Sales Order without stored customer/item ListIDs; local posting readiness still requires live FullName resolution.');
 
     $badSo = $soPayload;
     $badSo['so_number'] = 'E2E-SO-INVALID';

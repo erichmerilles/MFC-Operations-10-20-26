@@ -14,7 +14,7 @@
 - Products with HT Code, QB Code, and QB description present: 74.
 - Products with a verified QB ListID: 0.
 
-All invoices and Sales Orders remain local drafts; no QuickBooks posting path is implemented. This prevents any incomplete mapping from being submitted to QuickBooks. The invoice product selector omits products without QB Codes and its backend validates codes; Sales Order save explicitly rejects missing or ambiguous QB Code mappings. Missing ListIDs do not block local draft saves, so they must be resolved before a future integration milestone.
+All invoices and Sales Orders remain local drafts; no QuickBooks posting path is implemented. The invoice product selector omits products without QB Codes and its backend validates codes; Sales Order save explicitly rejects missing or ambiguous QB Code mappings. The displayed ListID column below is a legacy stored value snapshot. Its absence does not by itself block supported FullName-based references or local draft readiness. The authoritative QuickBooks FullName and its association with each business QB Code still must be verified against the intended company before posting.
 
 ## Duplicate and conflict checks
 
@@ -125,4 +125,4 @@ Read-only grouping of active records found no duplicate nonblank HT Codes, QB Co
 
 ## Database and integration safety
 
-The source query was read-only. No mappings were edited and no migration was run. Do not infer ListIDs or activate/configure items from display values. Re-query the product master and reconcile a fresh QuickBooks item-list export before an integration milestone.
+The source query was read-only. No mappings were edited and no migration was run. Do not infer ListIDs or authoritative FullNames from display values. Re-query the product master and reconcile a fresh QuickBooks item-list export before an integration milestone.

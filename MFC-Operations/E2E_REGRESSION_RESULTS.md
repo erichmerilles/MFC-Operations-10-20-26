@@ -6,6 +6,10 @@
 **Operational database:** `withdrawal_qb` (read-only inspection only).  
 **QuickBooks:** no posting attempted.
 
+## Follow-up run: 2026-10-21 name-based local preflight
+
+The guarded HTTP suite was rerun after decoupling local preflight from stored ListIDs. It passed all 14 cases using a synthetic client and two QB-coded products with `qb_list_id` left NULL; the separate Sales Order ID snapshots also remained NULL. Invoice/SO local drafts saved, while live QuickBooks name resolution remained explicitly blocked. The isolated test schema returned to zero tables. No QuickBooks lookup or posting was attempted. PHP syntax passed across 33 files. The QA regression rerun stopped at F10 due the login asset path mismatch documented in `QUICKBOOKS_INTEGRATION_TEST_RESULTS.md`.
+
 **Phase 2 browser run:** 2026-10-20, Microsoft Edge 155.0.4283.62 via Edge DevTools Protocol; test pages used the guarded `test` database and synthetic fixtures. Evidence is in [`tests/evidence/phase2/`](tests/evidence/phase2/).
 
 ## Baseline and scope
@@ -59,7 +63,7 @@
 | WITHDRAWAL-INVALID | Invalid dates/IDs/quantities, duplicate numbers, edit and rollback | Valid create/reopen path tested; remaining negative/edit cases not exercised | NOT RUN |
 | INVOICE-NEGATIVE | Duplicate number, invalid tax/date/price, invoice API scope/pagination/retry | Valid draft path tested; negative and history/API browser scenarios not exercised | NOT RUN |
 | PRINT-OUTPUT | Printed withdrawal/invoice/SO layout excludes screen controls | Invoice and Sales Order PDFs rendered on one landscape page with all line columns and subtotal; navigation/action controls were hidden. The dedicated `withdrawal_print.php` route was not opened. | PARTIAL |
-| MAPPING-READINESS | Active company mappings complete and authoritative | Read-only inventory found 92 app-active and 2 inactive products: 18 active missing QB Codes/descriptions and all 92 missing ListIDs; all 816 active clients lack ListIDs. Stock/lifecycle and current-company verification are unavailable. See `PRODUCT_MAPPING_READINESS.md`. | NEEDS REVIEW (business data) |
+| MAPPING-READINESS | Active company mappings complete and authoritative | Read-only inventory found 92 app-active and 2 inactive products: 18 active missing QB Codes/descriptions; all active products and clients lack stored legacy ListIDs. Their absence alone does not block supported FullName references, but current-company FullNames and item-code associations remain unverified. See `PRODUCT_MAPPING_READINESS.md`. | NEEDS REVIEW (business data) |
 | MIGRATION-PROVENANCE | Migration ledger identifies the deployment event | No migration-history table found/used; current FK definitions match target RESTRICT behavior, provenance is unknown | NEEDS REVIEW |
 
 **Counts for the matrix above:** 22 PASS, 2 BLOCKED, 4 NOT RUN, 1 PARTIAL, 2 NEEDS REVIEW, 0 application FAIL. The E2E program reports 14 passed cases including isolated fixture setup; the matrix splits these into individual HTTP assertions. The isolated/source groups and lint/schema checks are separately represented in the matrix.
@@ -104,7 +108,7 @@ See [`E2E_REGRESSION_DEFECTS.md`](E2E_REGRESSION_DEFECTS.md) for scope and outst
 - Role-specific authorization, invoice-history retry, the dedicated withdrawal print route, deployed HTTPS/proxy behavior, and visual styling dependent on external CDN assets remain unverified.
 - Business-role authorization paths and destructive operations were not exercised over HTTP.
 - HTTPS cookie behavior through the target proxy, deployment firewall/rate limits, and production session storage remain unverified.
-- Product mapping data is incomplete, and ListIDs still require verified QuickBooks lookup.
+- Product mapping data is incomplete; customer/item FullNames and code associations require live verification. Stored ListIDs are optional for supported name-based references.
 - Actual QuickBooks Invoice/Sales Order posting is absent/unverified. Local save is not evidence of QB creation.
 - Migration provenance cannot be inferred from current FKs alone.
 

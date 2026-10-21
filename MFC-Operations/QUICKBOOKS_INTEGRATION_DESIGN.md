@@ -1,10 +1,10 @@
 # QuickBooks Integration Design (Preparation Only)
 
-## Current boundary
+## Current boundary (reviewed 2026-10-21)
 
 The intended product named in `frontend/settings.php` is QuickBooks Desktop Enterprise Solutions 24.0, and the README identifies Web Connector/qbXML as the intended integration route. The deployment itself is not verified. Do not assume QuickBooks is installed on the PHP host, that a company file is selected, or that Web Connector is available. Online API/OAuth configuration was not found. Do not select or implement an adapter until the administrator confirms the actual edition, company-file host, network/TLS arrangement, Web Connector/SDK versions, and permissions.
 
-Intuit documents Web Connector as a Windows component that initiates communication from the QuickBooks host/local network and passes qbXML between QuickBooks and a web service. Intuit's Desktop SDK reference has a `SalesOrderAdd` operation. References: [Web Connector overview](https://static.developer.intuit.com/output_html/qbdesktop/docs/get-started/get-started-with-quickbooks-web-connector.html), [SalesOrderAdd](https://developer.intuit.com/app/developer/qbdesktop/docs/api-reference/qbdesktop/salesorderadd). No request/response was tested against the intended company file. Therefore no field mapping is declared verified.
+Intuit's QBSDK Programmer's Guide examples show `CustomerRef.FullName` and `ItemRef.FullName` in a `SalesOrderAdd`, and `CustomerRef.FullName` in an `InvoiceAdd`; QuickBooks list references also support `FullName`. Therefore a locally stored ListID is not inherently required when the chosen transaction supports and receives the exact authoritative full name. This is a protocol capability, not proof that local `client_name` or `qb_code` matches the intended company file. See [QBSDK Programmer's Guide](https://static.developer.intuit.com/qbSDK-current/doc/pdf/QBSDK_ProGuide.pdf), [InvoiceAdd](https://developer.intuit.com/app/developer/qbdesktop/docs/api-reference/qbdesktop/invoiceadd), [SalesOrderAdd](https://developer.intuit.com/app/developer/qbdesktop/docs/api-reference/qbdesktop/salesorderadd). The Web Connector/service/company file is absent or unverified, so no live name lookup or transaction was tested.
 
 ## Proposed boundary
 
@@ -18,15 +18,16 @@ Required operations, only after actual SDK/company-file verification:
 - lookup/reconciliation by a reliable transaction reference before retry;
 - normalized response/error handling with secrets and full sensitive payloads redacted.
 
-The local schema currently stores client/product `qb_list_id` fields and business-facing product `qb_code`. Treat ListID as an integration reference distinct from QB Code. Use only verified QuickBooks references accepted by the selected operation; do not use display names or QB Codes as ListIDs. Customer matching by display name alone is prohibited.
+The local schema keeps legacy optional client/product `qb_list_id` fields and business-facing product `qb_code`. Client maintenance and product maintenance do not ask staff to enter ListIDs. `backend/core/quickbooks_readiness.php` now separates local checks from unperformed live name resolution and does not make an empty ListID a local-preflight blocker. It still blocks posting because no connector/company-file verification or authoritative name resolution exists. For a future name-based path, use exact `CustomerRef.FullName` / `ItemRef.FullName` only after resolving the selected record against the intended company file; do not fuzzy-match, auto-create, or assume local name/code equals QuickBooks FullName. Preserve optional ListIDs for compatibility/reconciliation, not as a staff-maintained requirement.
 
 ## Data mapping decisions still required
 
 | Local value | Candidate source | Required verification |
 |---|---|---|
-| Customer | `clients.qb_list_id` | Confirm exact current-file customer identity and uniqueness. |
-| Item reference | `products.qb_list_id` | Confirm exact current-file item identity and correct item type. |
-| Display item code | `products.qb_code` | Human/business-facing code only; never assume it is a ListID. |
+| Customer business identity | `clients.client_name` | Exact match to authoritative current-file customer FullName, unambiguous query/verification; local name alone is not proof. |
+| Item business code | `products.qb_code` | Match to authoritative QuickBooks item code/name using company query; do not assume QB Code equals QuickBooks FullName. |
+| Item reference | Returned/verified item `FullName` (or optional verified `qb_list_id` if operation chooses it) | Verify exact item, item type, active state, code association and intended company. No lookup currently exists. |
+| Customer/item legacy IDs | `clients.qb_list_id`, `products.qb_list_id` | Optional compatibility values; never synthesize or require staff to maintain them for supported FullName references. |
 | Description | `products.qb_description` | Required for a QB-bound line if confirmed by the selected request; never substitute HT text. Historical saved descriptions remain unchanged. |
 | Quantity / rate / amount | Invoice or Sales Order saved lines | Validate positive whole quantity and local currency precision. Verify QB line semantics and tax behavior in the test company. |
 | Site, lot, U/M, class, status, fulfilled quantity, expiry, tax | Local line fields | Each needs an actual supported transaction field, custom field, or explicit documented non-transfer decision; do not map by guess. |

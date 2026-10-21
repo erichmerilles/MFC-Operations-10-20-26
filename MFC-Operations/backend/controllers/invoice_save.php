@@ -41,7 +41,7 @@ try {
     }
     $raw = $_POST['items'] ?? [];
     if (!is_array($raw)) throw new RuntimeException('Invoice lines are invalid.');
-    $products = $pdo->prepare('SELECT id,product_name,qb_code,qb_description,item_code,description,u_m,qb_list_id FROM products WHERE id=? AND active=1');
+    $products = $pdo->prepare('SELECT id,product_name,qb_code,qb_description,item_code,description,u_m FROM products WHERE id=? AND active=1');
     $codeMatches = $pdo->prepare('SELECT id FROM products WHERE LOWER(TRIM(qb_code))=LOWER(TRIM(?))');
     $sites = $pdo->prepare('SELECT id FROM sites WHERE id=? AND active=1');
     $withdrawalLine = $pdo->prepare('SELECT product_id FROM withdrawal_items WHERE id=? AND withdrawal_id=?');
