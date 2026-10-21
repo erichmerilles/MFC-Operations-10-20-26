@@ -5,6 +5,14 @@ declare(strict_types=1);
 require_once __DIR__ . '/../config/app.php';
 require_once __DIR__ . '/qbwc_qbxml.php';
 
+if (!function_exists('qbwcEndpointLogFailure')) {
+    function qbwcEndpointLogFailure(Throwable $exception): void
+    {
+        $class = (new ReflectionClass($exception))->getShortName();
+        error_log('[QBWC] Unexpected failure (' . $class . ').');
+    }
+}
+
 final class QuickBooksSessionStore
 {
     private PDO $pdo;
@@ -409,6 +417,9 @@ final class QuickBooksWebConnectorService
 
     public function getLastError(string $ticket): string
     {
+        if ($this->sessionStore->validateTicket($ticket) === null) {
+            return '';
+        }
         return $this->sessionStore->getLastError($ticket);
     }
 
@@ -465,57 +476,67 @@ final class QuickBooksSoapServiceAdapter
 
     public function serverVersion(stdClass $parameters): stdClass
     {
-        return (object)['serverVersionResult' => $this->service->serverVersion()];
+        return $this->invokeSafely(fn(): stdClass => (object)['serverVersionResult' => $this->service->serverVersion()]);
     }
 
     public function clientVersion(stdClass $parameters): stdClass
     {
-        return (object)['clientVersionResult' => $this->service->clientVersion((string)$parameters->strVersion)];
+        return $this->invokeSafely(fn(): stdClass => (object)['clientVersionResult' => $this->service->clientVersion((string)$parameters->strVersion)]);
     }
 
     public function authenticate(stdClass $parameters): stdClass
     {
-        return (object)['authenticateResult' => $this->service->authenticate((string)$parameters->strUserName, (string)$parameters->strPassword)];
+        return $this->invokeSafely(fn(): stdClass => (object)['authenticateResult' => $this->service->authenticate((string)$parameters->strUserName, (string)$parameters->strPassword)]);
     }
 
     public function sendRequestXML(stdClass $parameters): stdClass
     {
-        return (object)['sendRequestXMLResult' => $this->service->sendRequestXML(
+        return $this->invokeSafely(fn(): stdClass => (object)['sendRequestXMLResult' => $this->service->sendRequestXML(
             (string)$parameters->ticket,
             (string)$parameters->strHCPResponse,
             (string)$parameters->strCompanyFileName,
             (string)$parameters->qbXMLCountry,
             (int)$parameters->qbXMLMajorVers,
             (int)$parameters->qbXMLMinorVers
-        )];
+        )]);
     }
 
     public function receiveResponseXML(stdClass $parameters): stdClass
     {
-        return (object)['receiveResponseXMLResult' => $this->service->receiveResponseXML(
+        return $this->invokeSafely(fn(): stdClass => (object)['receiveResponseXMLResult' => $this->service->receiveResponseXML(
             (string)$parameters->ticket,
             (string)$parameters->response,
             (int)$parameters->hresult,
             (string)$parameters->message
-        )];
+        )]);
     }
 
     public function getLastError(stdClass $parameters): stdClass
     {
-        return (object)['getLastErrorResult' => $this->service->getLastError((string)$parameters->ticket)];
+        return $this->invokeSafely(fn(): stdClass => (object)['getLastErrorResult' => $this->service->getLastError((string)$parameters->ticket)]);
     }
 
     public function connectionError(stdClass $parameters): stdClass
     {
-        return (object)['connectionErrorResult' => $this->service->connectionError(
+        return $this->invokeSafely(fn(): stdClass => (object)['connectionErrorResult' => $this->service->connectionError(
             (string)$parameters->ticket,
             (string)$parameters->hresult,
             (string)$parameters->message
-        )];
+        )]);
     }
 
     public function closeConnection(stdClass $parameters): stdClass
     {
-        return (object)['closeConnectionResult' => $this->service->closeConnection((string)$parameters->ticket)];
+        return $this->invokeSafely(fn(): stdClass => (object)['closeConnectionResult' => $this->service->closeConnection((string)$parameters->ticket)]);
+    }
+
+    private function invokeSafely(callable $callback): stdClass
+    {
+        try {
+            return $callback();
+        } catch (Throwable $exception) {
+            qbwcEndpointLogFailure($exception);
+            throw new SoapFault('Server', 'The request could not be processed.');
+        }
     }
 }

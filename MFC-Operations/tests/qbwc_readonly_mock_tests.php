@@ -140,6 +140,22 @@ try {
     $pdo = qbwc_db();
     $service = new QuickBooksWebConnectorService($pdo);
 
+    $logFile = tempnam(sys_get_temp_dir(), 'qbwc-log-');
+    qbwc_assert(is_string($logFile), 'Could not create temporary QBWC log for regression test.');
+    $previousErrorLog = ini_get('error_log');
+    try {
+        qbwc_assert(ini_set('error_log', $logFile) !== false, 'Could not redirect PHP error log for regression test.');
+        qbwcEndpointLogFailure(new RuntimeException('QBWC_LOG_MESSAGE_SENTINEL', 930177));
+        $diagnosticLog = file_get_contents($logFile);
+        qbwc_assert(is_string($diagnosticLog) && str_contains($diagnosticLog, '[QBWC] Unexpected failure (RuntimeException).'), 'Sanitized QBWC diagnostic log is missing its fixed label.');
+        qbwc_assert(!str_contains($diagnosticLog, '930177') && !str_contains($diagnosticLog, 'QBWC_LOG_MESSAGE_SENTINEL'), 'QBWC diagnostic log must not contain exception codes or messages.');
+    } finally {
+        ini_set('error_log', (string)$previousErrorLog);
+        if (is_file($logFile)) {
+            unlink($logFile);
+        }
+    }
+
     $wsdlPath = __DIR__ . '/../backend/integration/qbwc.wsdl';
     $wsdl = new DOMDocument();
     qbwc_assert($wsdl->load($wsdlPath), 'The local QBWC WSDL is not well-formed XML.');
@@ -282,7 +298,22 @@ try {
     qbwc_assert($errorJob['status'] === 'failed' && $errorJob['response_code'] === '3100', 'QuickBooks errors must be classified and persisted.');
     qbwc_assert(!str_contains($errorJob['diagnostic'], 'Error Test') && !str_contains($errorJob['diagnostic'], 'mock error detail'), 'Stored error diagnostics must not contain sensitive response details.');
     qbwc_assert(!str_contains($errorJob['diagnostic'], 'qbwc-test-password') && !str_contains($service->getLastError($errorTicket), 'qbwc-test-password'), 'Authentication credentials must never appear in diagnostics.');
+    qbwc_assert(str_contains($service->getLastError($errorTicket), 'error code 3100'), 'A valid ticket must retrieve its stored error.');
+    qbwc_assert($service->sendRequestXML($errorTicket, '', '', 'US', 13, 0) === '', 'Reading a valid ticket error must not invalidate the session.');
+    qbwc_assert($service->getLastError('unknown-ticket') === '', 'Unknown tickets must not retrieve stored errors.');
     $service->closeConnection($errorTicket);
+    qbwc_assert($service->getLastError($errorTicket) === '', 'Closed tickets must not retrieve stored errors.');
+
+    $expiredPdo = qbwc_db();
+    $expiredService = new QuickBooksWebConnectorService($expiredPdo);
+    $expiredService->enqueueCustomerQuery(['Expired Error Ticket']);
+    $expiredErrorTicket = $expiredService->authenticate('qbwc-test-user', 'qbwc-test-password')[0];
+    $expiredService->sendRequestXML($expiredErrorTicket, '', '', 'US', 13, 0);
+    $expiredService->receiveResponseXML($expiredErrorTicket, '<invalid-response', 0, '');
+    qbwc_assert(str_contains($expiredService->getLastError($expiredErrorTicket), 'Malformed'), 'An active ticket must retrieve a stored parser error.');
+    $expireErrorSession = $expiredPdo->prepare('UPDATE qbwc_sessions SET expires_at = datetime("now","-1 minute") WHERE ticket = ?');
+    $expireErrorSession->execute([$expiredErrorTicket]);
+    qbwc_assert($expiredService->getLastError($expiredErrorTicket) === '', 'Expired tickets must not retrieve stored errors.');
 
     $hresultJobId = $service->enqueueItemQuery(['HRESULT Test']);
     $hresultTicket = $service->authenticate('qbwc-test-user', 'qbwc-test-password')[0];
@@ -315,8 +346,11 @@ try {
     qbwc_assert(qbwc_job($pdo, $cleanupJobId)['status'] === 'queued' && qbwc_job($pdo, $cleanupJobId)['session_id'] === null, 'Closing an incomplete session must return eligible work to the queue.');
     $cleanupTicket2 = $service->authenticate('qbwc-test-user', 'qbwc-test-password')[0];
     qbwc_assert($service->sendRequestXML($cleanupTicket2, '', '', 'US', 13, 0) === $cleanupXml, 'A released job must remain available for retry in a new authenticated session.');
+    $service->receiveResponseXML($cleanupTicket2, '<invalid-response', 0, '');
+    qbwc_assert(str_contains($service->getLastError($cleanupTicket2), 'Malformed'), 'An active connection-error session must expose its safe diagnostic.');
     $service->connectionError($cleanupTicket2, '0', 'ignored message');
     qbwc_assert(qbwc_job($pdo, $cleanupJobId)['status'] === 'queued', 'Connection errors must release retryable work.');
+    qbwc_assert($service->getLastError($cleanupTicket2) === '', 'connectionError must not leave diagnostics accessible after ticket closure.');
     $cleanupTicket3 = $service->authenticate('qbwc-test-user', 'qbwc-test-password')[0];
     $cleanupRetryXml = $service->sendRequestXML($cleanupTicket3, '', '', 'US', 13, 0);
     $cleanupRetryMeta = QuickBooksQueryBuilder::validateAndRebuildReadOnlyRequest($cleanupRetryXml);
@@ -393,6 +427,26 @@ try {
     ]);
     qbwc_assert(qbwc_soap_result($soapConnectionError, 'connectionError')->textContent === 'OK', 'connectionError SOAP contract failed.');
     qbwc_assert(qbwc_job($pdo, $soapConnectionJobId)['status'] === 'queued', 'SOAP connectionError must release retryable work.');
+
+    $brokenPdo = qbwc_db();
+    $brokenPdo->exec('DROP TABLE qbwc_readonly_jobs');
+    $failureTicket = bin2hex(random_bytes(24));
+    $failureSession = $brokenPdo->prepare('INSERT INTO qbwc_sessions (ticket, username, status, authenticated_at, expires_at, created_at) VALUES (?, ?, ?, datetime("now"), datetime("now","+1 hour"), datetime("now"))');
+    $failureSession->execute([$failureTicket, 'qbwc-test-user', 'active']);
+    $failingService = new QuickBooksWebConnectorService($brokenPdo);
+    $throwingSoap = qbwc_soap_server($failingService);
+    $soapFailure = qbwc_soap_call($throwingSoap, 'sendRequestXML', [
+        'ticket' => $failureTicket,
+        'strHCPResponse' => '',
+        'strCompanyFileName' => '',
+        'qbXMLCountry' => 'US',
+        'qbXMLMajorVers' => '13',
+        'qbXMLMinorVers' => '0',
+    ]);
+    $soapFailureXml = $soapFailure->saveXML();
+    qbwc_assert($soapFailure->getElementsByTagNameNS('http://schemas.xmlsoap.org/soap/envelope/', 'Fault')->length === 1, 'Unexpected callback failures must return a SOAP fault.');
+    qbwc_assert(str_contains($soapFailureXml, 'The request could not be processed.'), 'Unexpected callback failures must return a generic SOAP fault.');
+    qbwc_assert(!str_contains($soapFailureXml, 'no such table') && !str_contains($soapFailureXml, 'qbwc_readonly_jobs') && !str_contains($soapFailureXml, $failureTicket), 'SOAP faults must not reveal database errors, SQL details, or tickets.');
 
     echo "PASS QBWC-READONLY: authentication sentinels, server-generated queue, response parsing/retries, SOAP contract, and lifecycle\n";
 } finally {

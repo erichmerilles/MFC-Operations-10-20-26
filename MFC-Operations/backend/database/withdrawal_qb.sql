@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Oct 21, 2026 at 06:45 AM
+-- Generation Time: Oct 21, 2026 at 08:37 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -290,7 +290,9 @@ INSERT INTO `activity_logs` (`id`, `employee_id`, `action`, `entity_type`, `enti
 (245, 1, 'LOGIN', 'employee', 1, 'Successful login', '::1', '2026-10-21 09:08:18'),
 (246, 1, 'SAVE_DRAFT', 'invoice', 12, 'Saved invoice draft for 2026-101176 with 1 line(s)', '::1', '2026-10-21 09:46:26'),
 (247, 1, 'SAVE_DRAFT', 'sales_order', 3, 'Saved local Sales Order draft 2775 for withdrawal 2026-101175 with 1 line(s)', '::1', '2026-10-21 09:46:44'),
-(248, 1, 'SAVE_DRAFT', 'invoice', 12, 'Saved invoice draft for 2026-101176 with 1 line(s)', '::1', '2026-10-21 09:49:45');
+(248, 1, 'SAVE_DRAFT', 'invoice', 12, 'Saved invoice draft for 2026-101176 with 1 line(s)', '::1', '2026-10-21 09:49:45'),
+(249, 1, 'LOGIN', 'employee', 1, 'Successful login', '::1', '2026-10-21 12:50:12'),
+(250, 1, 'DEACTIVATE', 'site', 7, 'Updated site Toplis Logistics Inc', '::1', '2026-10-21 12:51:38');
 
 -- --------------------------------------------------------
 
@@ -1657,7 +1659,7 @@ INSERT INTO `sites` (`id`, `site_name`, `active`) VALUES
 (4, 'Met Food Office', 1),
 (5, 'Polar Bear Freezing & Storage C', 0),
 (6, 'QC Warehouse', 0),
-(7, 'Toplis Logistics Inc', 1);
+(7, 'Toplis Logistics Inc', 0);
 
 -- --------------------------------------------------------
 
@@ -1882,7 +1884,7 @@ ALTER TABLE `withdrawal_items`
 -- AUTO_INCREMENT for table `activity_logs`
 --
 ALTER TABLE `activity_logs`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=249;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=251;
 
 --
 -- AUTO_INCREMENT for table `clients`
