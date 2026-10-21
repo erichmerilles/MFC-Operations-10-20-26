@@ -4,6 +4,14 @@
 **Environment:** Local PHP/MariaDB application. `withdrawal_qb` was queried read-only for mapping counts.  
 **QuickBooks company file:** Not connected. No QuickBooks transaction was created.
 
+## 2026-10-21 read-only QBWC implementation and security regression update
+
+The local QBWC implementation is now present under `backend/integration/`: a local WSDL/SOAP endpoint, authenticated ticket lifecycle, a dedicated read-only Customer/Item query queue, and validated response classification. The server generates only `CustomerQueryRq` and `ItemQueryRq`; no QuickBooks write-request builder is enabled.
+
+The in-memory test suite `tests/qbwc_readonly_mock_tests.php` passed after the callback error-handling and logging changes. It covers authentication sentinels/session creation, queued request selection, read-only XML validation, query/error/malformed responses, ticket cleanup, SOAP exception redaction, and active/expired/closed/unknown `getLastError()` tickets. A distinctive exception code and message are verified absent from diagnostic logs. PHP syntax checks passed for `backend/integration/qbwc.php`, `backend/integration/qbwc_service.php`, and the mock test file. The expected test diagnostic was sanitized to `[QBWC] Unexpected failure (RuntimeException).`
+
+No Apache request, live database connection, migration, QBWC session, `.qwc` import, company-file access, or QuickBooks request was performed for these tests. Local WSDL/SoapServer and in-memory test coverage do not prove compatibility with a live QBWC installation. See [PROJECT_HANDOFF.md](PROJECT_HANDOFF.md) for implementation boundaries and outstanding verification.
+
 ## 2026-10-21 name-based preflight update
 
 The isolated HTTP suite was rerun after changing readiness behavior. Synthetic customer and product rows were created with `qb_list_id` left NULL. Invoice and Sales Order drafts both saved; the pages did not report the absent stored IDs as blockers. They did report that exact customer/item FullName resolution and the connector/company file remain unverified. This confirms local behavior only; it is not a mocked or live QuickBooks lookup.

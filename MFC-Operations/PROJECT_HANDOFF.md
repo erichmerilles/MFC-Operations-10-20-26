@@ -5,7 +5,7 @@
 > **Repository:** https://github.com/erichmerilles/MFC-Operations  
 > **Primary branch reviewed:** `main`  
 > **Application source folder:** `MFC-Operations/`  
-> **Last handoff review:** 2026-10-20
+> **Last handoff review:** 2026-10-21
 >
 > **Important:** This document is a project map, not a substitute for checking the specific files involved in a change. The repository is the source of truth. If the code, database, or this document disagree, inspect the current code and schema and update this document as needed. Do not assume static review proves runtime behavior.
 
@@ -20,7 +20,7 @@ The application separates presentation pages from backend operations:
 - **Frontend:** PHP pages, shared layout, styles, and browser-side JavaScript.
 - **Backend:** application bootstrap/configuration, authentication and shared helpers, POST controllers, JSON APIs, exports, database schema, and migrations.
 - **Database:** MySQL, normally run locally through XAMPP during development.
-- **QuickBooks:** invoice preparation is currently a local draft workflow. QuickBooks Web Connector / qbXML posting must not be described as implemented or verified unless the relevant integration code and real company-file tests prove it.
+- **QuickBooks:** invoice and Sales Order preparation are local draft workflows. A local WSDL-backed QBWC service now supports read-only Customer/Item queries only. Transaction posting, live QBWC/company-file communication, and QuickBooks compatibility remain unimplemented or unverified as stated in the integration notes below.
 
 The application should preserve the distinction between the original withdrawal transaction and the invoice draft created from it.
 
@@ -247,6 +247,15 @@ The remediation and local draft paths received isolated-database, CLI, authentic
 - Read-only mapping inventory found 92 app-active products and 2 inactive; 18 active rows lack QB Code and QB Description, and all 92 lack stored QB ListID. All 816 active local clients lack stored QB ListID. FullName references are supported for relevant Desktop qbXML operations, so absent ListIDs alone do not block local preflight; current company FullNames and item code associations remain unverified. The schema has no stock/lifecycle state, so no products were classified as out-of-stock or phased-out and no product/customer data was changed. See `PRODUCT_MAPPING_READINESS.md` and `QUICKBOOKS_READINESS_AUDIT.md`.
 - The code/settings name Desktop Enterprise 24.0 and the README describes Web Connector/qbXML as the intended path, but the actual installation, company file, and connector have not been verified. No live/sandbox QuickBooks call or transaction was made. See `QUICKBOOKS_INTEGRATION_DESIGN.md` and `QUICKBOOKS_INTEGRATION_TEST_RESULTS.md`.
 - Phase 1 QuickBooks preparation deliverables are maintained at the repository root to match the existing documentation convention: `PHASE_1_REPOSITORY_AUDIT.md`, `QUICKBOOKS_ENVIRONMENT_READINESS.md`, `QUICKBOOKS_FIELD_MAPPING.md`, `QUICKBOOKS_INTEGRATION_WORKFLOW.md`, `QUICKBOOKS_INTEGRATION_TEST_PLAN.md`, and `PHASE_1_READINESS_REPORT.md`. Phase 1 audit completion is not posting readiness; no connector or QuickBooks transaction send was verified.
+
+### F. QBWC read-only implementation and security fixes (2026-10-21)
+
+- `backend/integration/qbwc.php` loads the local `backend/integration/qbwc.wsdl`; `?wsdl` serves that file. The endpoint uses native WSDL-backed `SoapServer`.
+- `backend/integration/qbwc_service.php` implements the QBWC callbacks, environment-variable authentication, ticket/session lifecycle, and a database-backed queue. Authentication returns `nvu` for invalid/missing credentials, `none` when no work is queued, and a ticket plus an empty company-file selector when eligible work exists.
+- The queue generates only `CustomerQueryRq` and `ItemQueryRq` from server-provided names. `sendRequestXML()` dispatches validated server-generated requests, not caller-supplied qbXML. `receiveResponseXML()` validates and classifies query responses and supports bounded retries. No QuickBooks write-request builder is enabled.
+- Unexpected callback/endpoint failures are logged with a fixed QBWC label and exception class only; exception codes/messages, SQL, credentials, tickets, request payloads, and paths are not included in those diagnostics. SOAP callback failures return a generic server fault. `getLastError()` returns stored diagnostics only for an active, unexpired session; unknown, expired, and closed tickets return an empty string.
+- `tests/qbwc_readonly_mock_tests.php` exercises authentication, queue/read-only validation, response parsing, session lifecycle, SOAP/WSDL shape, generic exception redaction, exception-code log redaction, and `getLastError()` ticket states using in-memory SQLite. The local suite and PHP syntax checks passed on 2026-10-21.
+- This verifies local code paths only. Apache WSDL serving, active MySQL schema/migration status, live QBWC authentication, the selected company file, and all QuickBooks responses remain unverified. Do not import `.qwc`, start QBWC, or enable transaction posting until the database and endpoint are separately reviewed and an approved connection test is arranged.
 
 ## 7. Database and migration safety
 

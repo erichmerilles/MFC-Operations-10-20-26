@@ -4,6 +4,8 @@
 **Scope:** Read-only baseline audit of the current PHP/MySQL application  
 **Repository state:** Branch and working-tree state could not be confirmed because `git` is unavailable in this environment. No existing application files were changed.
 
+> **QBWC status note (2026-10-21):** This is a historical baseline audit. Its statement that no Web Connector processor or qbXML response handling was found predates the local read-only Customer/Item QBWC implementation and its in-memory tests. That implementation does not add transaction posting or verify live QBWC/company-file behavior. See [QUICKBOOKS_INTEGRATION_TEST_RESULTS.md](QUICKBOOKS_INTEGRATION_TEST_RESULTS.md) for the later local-only test update.
+
 ## 1. Executive Summary
 
 The source has a clear PHP frontend, shared authentication/helpers, backend controllers/APIs, and a MySQL data model. All 30 PHP files pass PHP 8.2.12 syntax checks. The configured `withdrawal_qb` MariaDB database was inspected read-only: core transaction tables and additive Sales Order/invoice memo schema are present; checked detail relationships have no orphan rows; saved invoice and Sales Order amounts agree with their line calculations; and the withdrawal and invoice quantity columns are unsigned whole-number types.

@@ -1,10 +1,10 @@
 # QuickBooks Integration Workflow and Recovery Specification
 
-**Current state:** Preparation only. This is a target workflow, not implemented behavior.
+**Current state:** Invoice/Sales Order transaction posting remains preparation-only; the transaction workflow below is a target specification, not implemented behavior. A separate local QBWC service supports read-only Customer/Item queries only. No live QBWC or company-file behavior is verified.
 
 ## Existing local flow
 
-Withdrawal saves to the local MariaDB database. Invoice preparation writes an Invoice draft to `invoices`/`invoice_items`; Sales Order preparation writes a separate draft to `sales_orders`/`sales_order_items`. The two local save controllers validate and commit local drafts but do not submit transactions to QuickBooks. Existing invoice `qb_jobs` schema is not an active processor and has no Sales Order relation.
+Withdrawal saves to the local MariaDB database. Invoice preparation writes an Invoice draft to `invoices`/`invoice_items`; Sales Order preparation writes a separate draft to `sales_orders`/`sales_order_items`. The two local save controllers validate and commit local drafts but do not submit transactions to QuickBooks. The QBWC query service uses a dedicated read-only job queue and cannot post either draft. Existing invoice `qb_jobs` schema is not an active processor and has no Sales Order relation.
 
 ## Proposed phase boundary (after environment and mappings pass)
 
